@@ -24,7 +24,7 @@ pub struct DedupRangeMap<T> {
 impl<T> DedupRangeMap<T> {
     /// Creates a new `RangeMap` for the given size, and with the given initial value used for
     /// the entire range.
-    #[inline(always)]
+    #[inline(never)]
     pub fn new(size: Size, init: T) -> DedupRangeMap<T> {
         let size = size.bytes();
         let v = if size > 0 { vec![Elem { range: 0..size, data: init }] } else { Vec::new() };

@@ -525,7 +525,7 @@ impl<'tcx, M: Machine<'tcx>> InterpCx<'tcx, M> {
     }
 
     /// Internal helper function to determine the allocation and offset of a pointer (if any).
-    #[inline(always)]
+    #[inline(never)]
     fn get_ptr_access(
         &self,
         ptr: Pointer<Option<M::Provenance>>,
@@ -547,7 +547,7 @@ impl<'tcx, M: Machine<'tcx>> InterpCx<'tcx, M> {
 
     /// Check if the given pointer points to live memory of the given `size`.
     /// The caller can control the error message for the out-of-bounds case.
-    #[inline(always)]
+    #[inline(never)]
     pub fn check_ptr_access(
         &self,
         ptr: Pointer<Option<M::Provenance>>,
@@ -1785,7 +1785,7 @@ impl<'tcx, M: Machine<'tcx>> InterpCx<'tcx, M> {
     /// the returned data back into a `Pointer` and store that in machine state.
     /// (In fact that's not even possible since `M::ProvenanceExtra` is generic and
     /// we don't have an operation to turn it back into `M::Provenance`.)
-    #[inline(always)]
+    #[inline(never)]
     pub fn ptr_get_alloc_id(
         &self,
         ptr: Pointer<Option<M::Provenance>>,

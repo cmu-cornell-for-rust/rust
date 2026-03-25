@@ -38,7 +38,7 @@ impl<K: Hash + Eq, V> Default for MonoHashMap<K, V> {
 }
 
 impl<K: Hash + Eq, V> AllocMap<K, V> for MonoHashMap<K, V> {
-    #[inline(always)]
+    #[inline(never)]
     fn contains_key<Q: ?Sized + Hash + Eq>(&mut self, k: &Q) -> bool
     where
         K: Borrow<Q>,
@@ -46,7 +46,7 @@ impl<K: Hash + Eq, V> AllocMap<K, V> for MonoHashMap<K, V> {
         self.0.get_mut().contains_key(k)
     }
 
-    #[inline(always)]
+    #[inline(never)]
     fn contains_key_ref<Q: ?Sized + Hash + Eq>(&self, k: &Q) -> bool
     where
         K: Borrow<Q>,
@@ -54,12 +54,12 @@ impl<K: Hash + Eq, V> AllocMap<K, V> for MonoHashMap<K, V> {
         self.0.borrow().contains_key(k)
     }
 
-    #[inline(always)]
+    #[inline(never)]
     fn insert(&mut self, k: K, v: V) -> Option<V> {
         self.0.get_mut().insert(k, Box::new(v)).map(|x| *x)
     }
 
-    #[inline(always)]
+    #[inline(never)]
     fn remove<Q: ?Sized + Hash + Eq>(&mut self, k: &Q) -> Option<V>
     where
         K: Borrow<Q>,
@@ -67,7 +67,7 @@ impl<K: Hash + Eq, V> AllocMap<K, V> for MonoHashMap<K, V> {
         self.0.get_mut().remove(k).map(|x| *x)
     }
 
-    #[inline(always)]
+    #[inline(never)]
     fn filter_map_collect<T>(&self, mut f: impl FnMut(&K, &V) -> Option<T>) -> Vec<T> {
         self.0.borrow().iter().filter_map(move |(k, v)| f(k, v)).collect()
     }
@@ -78,7 +78,7 @@ impl<K: Hash + Eq, V> AllocMap<K, V> for MonoHashMap<K, V> {
     /// `vacant` is called if the key is not found in the map;
     /// if it returns a reference, that is used directly, if it
     /// returns owned data, that is put into the map and returned.
-    #[inline(always)]
+    #[inline(never)]
     fn get_or<E>(&self, k: K, vacant: impl FnOnce() -> Result<V, E>) -> Result<&V, E> {
         // We cannot hold borrow_mut while calling `vacant`, since that might have to do lookups in this very map.
         if let Some(v) = self.0.borrow().get(&k) {
@@ -105,7 +105,7 @@ impl<K: Hash + Eq, V> AllocMap<K, V> for MonoHashMap<K, V> {
         unsafe { Some(&*val) }
     }
 
-    #[inline(always)]
+    #[inline(never)]
     fn get_mut_or<E>(&mut self, k: K, vacant: impl FnOnce() -> Result<V, E>) -> Result<&mut V, E> {
         match self.0.get_mut().entry(k) {
             Entry::Occupied(e) => Ok(e.into_mut()),

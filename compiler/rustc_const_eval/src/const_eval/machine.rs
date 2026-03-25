@@ -108,7 +108,7 @@ impl<'tcx> CompileTimeMachine<'tcx> {
 }
 
 impl<K: Hash + Eq, V> interpret::AllocMap<K, V> for FxIndexMap<K, V> {
-    #[inline(always)]
+    #[inline(never)]
     fn contains_key<Q: ?Sized + Hash + Eq>(&mut self, k: &Q) -> bool
     where
         K: Borrow<Q>,
@@ -116,7 +116,7 @@ impl<K: Hash + Eq, V> interpret::AllocMap<K, V> for FxIndexMap<K, V> {
         FxIndexMap::contains_key(self, k)
     }
 
-    #[inline(always)]
+    #[inline(never)]
     fn contains_key_ref<Q: ?Sized + Hash + Eq>(&self, k: &Q) -> bool
     where
         K: Borrow<Q>,
@@ -124,12 +124,12 @@ impl<K: Hash + Eq, V> interpret::AllocMap<K, V> for FxIndexMap<K, V> {
         FxIndexMap::contains_key(self, k)
     }
 
-    #[inline(always)]
+    #[inline(never)]
     fn insert(&mut self, k: K, v: V) -> Option<V> {
         FxIndexMap::insert(self, k, v)
     }
 
-    #[inline(always)]
+    #[inline(never)]
     fn remove<Q: ?Sized + Hash + Eq>(&mut self, k: &Q) -> Option<V>
     where
         K: Borrow<Q>,
@@ -138,12 +138,12 @@ impl<K: Hash + Eq, V> interpret::AllocMap<K, V> for FxIndexMap<K, V> {
         FxIndexMap::swap_remove(self, k)
     }
 
-    #[inline(always)]
+    #[inline(never)]
     fn filter_map_collect<T>(&self, mut f: impl FnMut(&K, &V) -> Option<T>) -> Vec<T> {
         self.iter().filter_map(move |(k, v)| f(k, v)).collect()
     }
 
-    #[inline(always)]
+    #[inline(never)]
     fn get_or<E>(&self, k: K, vacant: impl FnOnce() -> Result<V, E>) -> Result<&V, E> {
         match self.get(&k) {
             Some(v) => Ok(v),
@@ -154,7 +154,7 @@ impl<K: Hash + Eq, V> interpret::AllocMap<K, V> for FxIndexMap<K, V> {
         }
     }
 
-    #[inline(always)]
+    #[inline(never)]
     fn get_mut_or<E>(&mut self, k: K, vacant: impl FnOnce() -> Result<V, E>) -> Result<&mut V, E> {
         match self.entry(k) {
             IndexEntry::Occupied(e) => Ok(e.into_mut()),
@@ -188,7 +188,7 @@ impl fmt::Display for MemoryKind {
 }
 
 impl interpret::MayLeak for MemoryKind {
-    #[inline(always)]
+    #[inline(never)]
     fn may_leak(self) -> bool {
         match self {
             MemoryKind::Heap { was_made_global } => was_made_global,
@@ -197,7 +197,7 @@ impl interpret::MayLeak for MemoryKind {
 }
 
 impl interpret::MayLeak for ! {
-    #[inline(always)]
+    #[inline(never)]
     fn may_leak(self) -> bool {
         // `self` is uninhabited
         self
@@ -385,7 +385,7 @@ impl<'tcx> CompileTimeInterpCx<'tcx> {
 }
 
 impl<'tcx> CompileTimeMachine<'tcx> {
-    #[inline(always)]
+    #[inline(never)]
     /// Find the first stack frame that is within the current crate, if any.
     /// Otherwise, return the crate's HirId
     pub fn best_lint_scope(&self, tcx: TyCtxt<'tcx>) -> hir::HirId {
@@ -398,12 +398,12 @@ impl<'tcx> interpret::Machine<'tcx> for CompileTimeMachine<'tcx> {
 
     const PANIC_ON_ALLOC_FAIL: bool = false; // will be raised as a proper error
 
-    #[inline(always)]
+    #[inline(never)]
     fn enforce_alignment(ecx: &InterpCx<'tcx, Self>) -> bool {
         matches!(ecx.machine.check_alignment, CheckAlignment::Error)
     }
 
-    #[inline(always)]
+    #[inline(never)]
     fn enforce_validity(ecx: &InterpCx<'tcx, Self>, layout: TyAndLayout<'tcx>) -> bool {
         ecx.tcx.sess.opts.unstable_opts.extra_const_ub_checks || layout.is_uninhabited()
     }
@@ -657,7 +657,7 @@ impl<'tcx> interpret::Machine<'tcx> for CompileTimeMachine<'tcx> {
         Err(ConstEvalErrKind::AssertFailure(err)).into()
     }
 
-    #[inline(always)]
+    #[inline(never)]
     fn runtime_checks(
         _ecx: &InterpCx<'tcx, Self>,
         _r: mir::RuntimeChecks,
@@ -738,7 +738,7 @@ impl<'tcx> interpret::Machine<'tcx> for CompileTimeMachine<'tcx> {
         interp_ok(())
     }
 
-    #[inline(always)]
+    #[inline(never)]
     fn expose_provenance(
         _ecx: &InterpCx<'tcx, Self>,
         _provenance: Self::Provenance,
@@ -747,7 +747,7 @@ impl<'tcx> interpret::Machine<'tcx> for CompileTimeMachine<'tcx> {
         throw_unsup_format!("exposing pointers is not possible at compile-time")
     }
 
-    #[inline(always)]
+    #[inline(never)]
     fn init_frame(
         ecx: &mut InterpCx<'tcx, Self>,
         frame: Frame<'tcx>,
@@ -760,14 +760,14 @@ impl<'tcx> interpret::Machine<'tcx> for CompileTimeMachine<'tcx> {
         }
     }
 
-    #[inline(always)]
+    #[inline(never)]
     fn stack<'a>(
         ecx: &'a InterpCx<'tcx, Self>,
     ) -> &'a [Frame<'tcx, Self::Provenance, Self::FrameExtra>] {
         &ecx.machine.stack
     }
 
-    #[inline(always)]
+    #[inline(never)]
     fn stack_mut<'a>(
         ecx: &'a mut InterpCx<'tcx, Self>,
     ) -> &'a mut Vec<Frame<'tcx, Self::Provenance, Self::FrameExtra>> {

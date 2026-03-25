@@ -54,7 +54,7 @@ impl<'tcx> interpret::Machine<'tcx> for DummyMachine {
     // We want to just eval random consts in the program, so `eval_mir_const` can fail.
     const ALL_CONSTS_ARE_PRECHECKED: bool = false;
 
-    #[inline(always)]
+    #[inline(never)]
     fn enforce_alignment(_ecx: &InterpCx<'tcx, Self>) -> bool {
         false // no reason to enforce alignment
     }
@@ -122,7 +122,7 @@ impl<'tcx> interpret::Machine<'tcx> for DummyMachine {
         unimplemented!()
     }
 
-    #[inline(always)]
+    #[inline(never)]
     fn runtime_checks(_ecx: &InterpCx<'tcx, Self>, r: RuntimeChecks) -> InterpResult<'tcx, bool> {
         // Runtime checks have different value depending on the crate they are codegenned in.
         // Verify we aren't trying to evaluate them in mir-optimizations.

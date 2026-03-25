@@ -74,7 +74,7 @@ impl TracingChromeInstant {
     /// Note: microseconds are used as the time unit since that's what Chrome trace files should
     /// contain, see the definition of the "ts" field in
     /// <https://docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/preview>.
-    #[inline(always)]
+    #[inline(never)]
     pub fn with_elapsed_micros_subtracting_tracing(&mut self, f: impl Fn(f64)) {
         match self {
             TracingChromeInstant::WallTime { start_instant } => {
@@ -115,7 +115,7 @@ mod tsc {
 
     /// Reads the timestamp-counter register. Will give monotonic answers only when called from the
     /// same thread, because the TSC of different CPUs might be out of sync.
-    #[inline(always)]
+    #[inline(never)]
     pub(super) fn rdtsc() -> u64 {
         #[cfg(target_arch = "x86")]
         use core::arch::x86::_rdtsc;

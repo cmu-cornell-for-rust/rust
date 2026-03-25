@@ -8,7 +8,7 @@ pub struct Supervisor;
 pub struct SvInitError;
 
 impl Supervisor {
-    #[inline(always)]
+    #[inline(never)]
     pub fn is_enabled() -> bool {
         false
     }
@@ -23,12 +23,12 @@ impl Supervisor {
     }
 }
 
-#[inline(always)]
+#[inline(never)]
 #[allow(dead_code, clippy::missing_safety_doc)]
 pub unsafe fn init_sv() -> Result<!, SvInitError> {
     Err(SvInitError)
 }
 
-#[inline(always)]
+#[inline(never)]
 #[allow(dead_code)]
 pub fn register_retcode_sv<T>(_: T) {}

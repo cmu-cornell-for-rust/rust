@@ -38,7 +38,7 @@ impl<Prov: Provenance> MemPlaceMeta<Prov> {
         }
     }
 
-    #[inline(always)]
+    #[inline(never)]
     pub fn has_meta(self) -> bool {
         match self {
             Self::Meta(_) => true,
@@ -128,29 +128,29 @@ impl<'tcx, Prov: Provenance> MPlaceTy<'tcx, Prov> {
         MPlaceTy { mplace: self.mplace.map_provenance(f), ..self }
     }
 
-    #[inline(always)]
+    #[inline(never)]
     pub(super) fn mplace(&self) -> &MemPlace<Prov> {
         &self.mplace
     }
 
-    #[inline(always)]
+    #[inline(never)]
     pub fn ptr(&self) -> Pointer<Option<Prov>> {
         self.mplace.ptr
     }
 
-    #[inline(always)]
+    #[inline(never)]
     pub fn to_ref(&self, cx: &impl HasDataLayout) -> Immediate<Prov> {
         self.mplace.to_ref(cx)
     }
 }
 
 impl<'tcx, Prov: Provenance> Projectable<'tcx, Prov> for MPlaceTy<'tcx, Prov> {
-    #[inline(always)]
+    #[inline(never)]
     fn layout(&self) -> TyAndLayout<'tcx> {
         self.layout
     }
 
-    #[inline(always)]
+    #[inline(never)]
     fn meta(&self) -> MemPlaceMeta<Prov> {
         self.mplace.meta
     }
@@ -169,7 +169,7 @@ impl<'tcx, Prov: Provenance> Projectable<'tcx, Prov> for MPlaceTy<'tcx, Prov> {
         })
     }
 
-    #[inline(always)]
+    #[inline(never)]
     fn to_op<M: Machine<'tcx, Provenance = Prov>>(
         &self,
         _ecx: &InterpCx<'tcx, M>,
@@ -220,14 +220,14 @@ impl<Prov: Provenance> std::fmt::Debug for PlaceTy<'_, Prov> {
 }
 
 impl<'tcx, Prov: Provenance> From<MPlaceTy<'tcx, Prov>> for PlaceTy<'tcx, Prov> {
-    #[inline(always)]
+    #[inline(never)]
     fn from(mplace: MPlaceTy<'tcx, Prov>) -> Self {
         PlaceTy { place: Place::Ptr(mplace.mplace), layout: mplace.layout }
     }
 }
 
 impl<'tcx, Prov: Provenance> PlaceTy<'tcx, Prov> {
-    #[inline(always)]
+    #[inline(never)]
     pub(super) fn place(&self) -> &Place<Prov> {
         &self.place
     }
@@ -239,7 +239,7 @@ impl<'tcx, Prov: Provenance> PlaceTy<'tcx, Prov> {
     /// depending on how the place was constructed. In other words, seeing `Local` here does *not*
     /// imply that this place does not point to memory. Every caller must therefore always handle
     /// both cases.
-    #[inline(always)]
+    #[inline(never)]
     pub fn as_mplace_or_local(
         &self,
     ) -> Either<MPlaceTy<'tcx, Prov>, (mir::Local, Option<Size>, usize, TyAndLayout<'tcx>)> {
@@ -251,7 +251,7 @@ impl<'tcx, Prov: Provenance> PlaceTy<'tcx, Prov> {
         }
     }
 
-    #[inline(always)]
+    #[inline(never)]
     #[cfg_attr(debug_assertions, track_caller)] // only in debug builds due to perf (see #98980)
     pub fn assert_mem_place(&self) -> MPlaceTy<'tcx, Prov> {
         self.as_mplace_or_local().left().unwrap_or_else(|| {
@@ -264,7 +264,7 @@ impl<'tcx, Prov: Provenance> PlaceTy<'tcx, Prov> {
 }
 
 impl<'tcx, Prov: Provenance> Projectable<'tcx, Prov> for PlaceTy<'tcx, Prov> {
-    #[inline(always)]
+    #[inline(never)]
     fn layout(&self) -> TyAndLayout<'tcx> {
         self.layout
     }
@@ -309,7 +309,7 @@ impl<'tcx, Prov: Provenance> Projectable<'tcx, Prov> for PlaceTy<'tcx, Prov> {
         })
     }
 
-    #[inline(always)]
+    #[inline(never)]
     fn to_op<M: Machine<'tcx, Provenance = Prov>>(
         &self,
         ecx: &InterpCx<'tcx, M>,
@@ -320,7 +320,7 @@ impl<'tcx, Prov: Provenance> Projectable<'tcx, Prov> for PlaceTy<'tcx, Prov> {
 
 // These are defined here because they produce a place.
 impl<'tcx, Prov: Provenance> OpTy<'tcx, Prov> {
-    #[inline(always)]
+    #[inline(never)]
     pub fn as_mplace_or_imm(&self) -> Either<MPlaceTy<'tcx, Prov>, ImmTy<'tcx, Prov>> {
         match self.op() {
             Operand::Indirect(mplace) => Left(MPlaceTy { mplace: *mplace, layout: self.layout }),
@@ -328,7 +328,7 @@ impl<'tcx, Prov: Provenance> OpTy<'tcx, Prov> {
         }
     }
 
-    #[inline(always)]
+    #[inline(never)]
     #[cfg_attr(debug_assertions, track_caller)] // only in debug builds due to perf (see #98980)
     pub fn assert_mem_place(&self) -> MPlaceTy<'tcx, Prov> {
         self.as_mplace_or_imm().left().unwrap_or_else(|| {
@@ -351,12 +351,12 @@ pub trait Writeable<'tcx, Prov: Provenance>: Projectable<'tcx, Prov> {
 }
 
 impl<'tcx, Prov: Provenance> Writeable<'tcx, Prov> for PlaceTy<'tcx, Prov> {
-    #[inline(always)]
+    #[inline(never)]
     fn to_place(&self) -> PlaceTy<'tcx, Prov> {
         self.clone()
     }
 
-    #[inline(always)]
+    #[inline(never)]
     fn force_mplace<M: Machine<'tcx, Provenance = Prov>>(
         &self,
         ecx: &mut InterpCx<'tcx, M>,
@@ -366,12 +366,12 @@ impl<'tcx, Prov: Provenance> Writeable<'tcx, Prov> for PlaceTy<'tcx, Prov> {
 }
 
 impl<'tcx, Prov: Provenance> Writeable<'tcx, Prov> for MPlaceTy<'tcx, Prov> {
-    #[inline(always)]
+    #[inline(never)]
     fn to_place(&self) -> PlaceTy<'tcx, Prov> {
         self.clone().into()
     }
 
-    #[inline(always)]
+    #[inline(never)]
     fn force_mplace<M: Machine<'tcx, Provenance = Prov>>(
         &self,
         _ecx: &mut InterpCx<'tcx, M>,
@@ -566,7 +566,7 @@ where
 
     /// Given a place, returns either the underlying mplace or a reference to where the value of
     /// this place is stored.
-    #[inline(always)]
+    #[inline(never)]
     fn as_mplace_or_mutable_local(
         &mut self,
         place: &PlaceTy<'tcx, M::Provenance>,
@@ -603,7 +603,7 @@ where
     }
 
     /// Write an immediate to a place
-    #[inline(always)]
+    #[inline(never)]
     #[instrument(skip(self), level = "trace")]
     pub fn write_immediate(
         &mut self,
@@ -626,7 +626,7 @@ where
     }
 
     /// Write a scalar to a place
-    #[inline(always)]
+    #[inline(never)]
     pub fn write_scalar(
         &mut self,
         val: impl Into<Scalar<M::Provenance>>,
@@ -636,7 +636,7 @@ where
     }
 
     /// Write a pointer to a place
-    #[inline(always)]
+    #[inline(never)]
     pub fn write_pointer(
         &mut self,
         ptr: impl Into<Pointer<Option<M::Provenance>>>,
@@ -801,7 +801,7 @@ where
 
     /// Copies the data from an operand to a place.
     /// The layouts of the `src` and `dest` may disagree.
-    #[inline(always)]
+    #[inline(never)]
     pub fn copy_op_allow_transmute(
         &mut self,
         src: &impl Projectable<'tcx, M::Provenance>,
@@ -812,7 +812,7 @@ where
 
     /// Copies the data from an operand to a place.
     /// `src` and `dest` must have the same layout and the copied value will be validated.
-    #[inline(always)]
+    #[inline(never)]
     pub fn copy_op(
         &mut self,
         src: &impl Projectable<'tcx, M::Provenance>,
@@ -823,7 +823,7 @@ where
 
     /// Copies the data from an operand to a place.
     /// `allow_transmute` indicates whether the layouts may disagree.
-    #[inline(always)]
+    #[inline(never)]
     #[instrument(skip(self), level = "trace")]
     fn copy_op_inner(
         &mut self,

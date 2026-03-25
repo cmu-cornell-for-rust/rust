@@ -418,7 +418,7 @@ fn eval_in_interpreter<'tcx, R: InterpretationResult<'tcx>>(
     result.report_err().map_err(|error| report_eval_error(&ecx, cid, error))
 }
 
-#[inline(always)]
+#[inline(never)]
 fn const_validate_mplace<'tcx>(
     ecx: &mut InterpCx<'tcx, CompileTimeMachine<'tcx>>,
     mplace: &MPlaceTy<'tcx>,

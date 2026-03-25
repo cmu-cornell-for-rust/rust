@@ -41,7 +41,7 @@ pub enum Immediate<Prov: Provenance = CtfeProvenance> {
 }
 
 impl<Prov: Provenance> From<Scalar<Prov>> for Immediate<Prov> {
-    #[inline(always)]
+    #[inline(never)]
     fn from(val: Scalar<Prov>) -> Self {
         Immediate::Scalar(val)
     }
@@ -248,7 +248,7 @@ impl<Prov: Provenance> std::fmt::Debug for ImmTy<'_, Prov> {
 
 impl<'tcx, Prov: Provenance> std::ops::Deref for ImmTy<'tcx, Prov> {
     type Target = Immediate<Prov>;
-    #[inline(always)]
+    #[inline(never)]
     fn deref(&self) -> &Immediate<Prov> {
         &self.imm
     }
@@ -272,7 +272,7 @@ impl<'tcx, Prov: Provenance> ImmTy<'tcx, Prov> {
         ImmTy { imm, layout }
     }
 
-    #[inline(always)]
+    #[inline(never)]
     pub fn from_immediate(imm: Immediate<Prov>, layout: TyAndLayout<'tcx>) -> Self {
         // Without a `cx` we cannot call `assert_matches_abi`.
         debug_assert!(
@@ -445,12 +445,12 @@ impl<'tcx, Prov: Provenance> ImmTy<'tcx, Prov> {
 }
 
 impl<'tcx, Prov: Provenance> Projectable<'tcx, Prov> for ImmTy<'tcx, Prov> {
-    #[inline(always)]
+    #[inline(never)]
     fn layout(&self) -> TyAndLayout<'tcx> {
         self.layout
     }
 
-    #[inline(always)]
+    #[inline(never)]
     fn meta(&self) -> MemPlaceMeta<Prov> {
         debug_assert!(self.layout.is_sized()); // unsized ImmTy can only exist temporarily and should never reach this here
         MemPlaceMeta::None
@@ -468,7 +468,7 @@ impl<'tcx, Prov: Provenance> Projectable<'tcx, Prov> for ImmTy<'tcx, Prov> {
         interp_ok(self.offset_(offset, layout, ecx))
     }
 
-    #[inline(always)]
+    #[inline(never)]
     fn to_op<M: Machine<'tcx, Provenance = Prov>>(
         &self,
         _ecx: &InterpCx<'tcx, M>,
@@ -503,21 +503,21 @@ impl<Prov: Provenance> std::fmt::Debug for OpTy<'_, Prov> {
 }
 
 impl<'tcx, Prov: Provenance> From<ImmTy<'tcx, Prov>> for OpTy<'tcx, Prov> {
-    #[inline(always)]
+    #[inline(never)]
     fn from(val: ImmTy<'tcx, Prov>) -> Self {
         OpTy { op: Operand::Immediate(val.imm), layout: val.layout }
     }
 }
 
 impl<'tcx, Prov: Provenance> From<MPlaceTy<'tcx, Prov>> for OpTy<'tcx, Prov> {
-    #[inline(always)]
+    #[inline(never)]
     fn from(mplace: MPlaceTy<'tcx, Prov>) -> Self {
         OpTy { op: Operand::Indirect(*mplace.mplace()), layout: mplace.layout }
     }
 }
 
 impl<'tcx, Prov: Provenance> OpTy<'tcx, Prov> {
-    #[inline(always)]
+    #[inline(never)]
     pub(super) fn op(&self) -> &Operand<Prov> {
         &self.op
     }
@@ -528,7 +528,7 @@ impl<'tcx, Prov: Provenance> OpTy<'tcx, Prov> {
 }
 
 impl<'tcx, Prov: Provenance> Projectable<'tcx, Prov> for OpTy<'tcx, Prov> {
-    #[inline(always)]
+    #[inline(never)]
     fn layout(&self) -> TyAndLayout<'tcx> {
         self.layout
     }
@@ -564,7 +564,7 @@ impl<'tcx, Prov: Provenance> Projectable<'tcx, Prov> for OpTy<'tcx, Prov> {
         }
     }
 
-    #[inline(always)]
+    #[inline(never)]
     fn to_op<M: Machine<'tcx, Provenance = Prov>>(
         &self,
         _ecx: &InterpCx<'tcx, M>,
@@ -662,7 +662,7 @@ impl<'tcx, M: Machine<'tcx>> InterpCx<'tcx, M> {
     /// Read an immediate from a place, asserting that that is possible with the given layout.
     ///
     /// If this succeeds, the `ImmTy` is never `Uninit`.
-    #[inline(always)]
+    #[inline(never)]
     pub fn read_immediate(
         &self,
         op: &impl Projectable<'tcx, M::Provenance>,

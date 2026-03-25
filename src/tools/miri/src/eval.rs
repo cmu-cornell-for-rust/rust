@@ -23,6 +23,9 @@ use crate::diagnostics::report_leaks;
 use crate::shims::{global_ctor, tls};
 use crate::*;
 
+use std::io::Write;
+use std::fs::OpenOptions;
+
 #[derive(Copy, Clone, Debug)]
 pub enum MiriEntryFnType {
     MiriStart,
@@ -461,6 +464,10 @@ pub fn eval_entry<'tcx>(
     config: &MiriConfig,
     genmc_ctx: Option<Rc<GenmcCtx>>,
 ) -> Result<(), NonZeroI32> {
+     let guard = pprof::ProfilerGuardBuilder::default()
+        .frequency(200)
+        .blocklist(&["libc", "libgcc", "pthread", "vdso"]).build().unwrap();
+
     // Copy setting before we move `config`.
     let ignore_leaks = config.ignore_leaks;
 
@@ -480,6 +487,7 @@ pub fn eval_entry<'tcx>(
         ecx.handle_ice();
         panic::resume_unwind(panic_payload)
     });
+
     // Obtain the result of the execution. This is always an `Err`, but that doesn't necessarily
     // indicate an error.
     let Err(res) = res.report_err();
@@ -510,6 +518,17 @@ pub fn eval_entry<'tcx>(
                 // Ignore the provided return code - let the reported error
                 // determine the return code.
                 break 'miri_error;
+            }
+        }
+
+        if let Ok(report) = guard.report().build() {
+            if let Ok(mut file) = OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open("profile.log")
+            {
+                let _ = writeln!(file, "==== Miri Profiling Results ====");
+                let _ = writeln!(file, "{:?}", report);
             }
         }
 

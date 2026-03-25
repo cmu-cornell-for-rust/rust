@@ -194,6 +194,7 @@ impl LiveAllocs<'_, '_> {
 }
 
 fn remove_unreachable_tags<'tcx>(ecx: &mut MiriInterpCx<'tcx>, tags: FxHashSet<BorTag>) {
+    trace!("Provenance GC invoked");
     // Avoid iterating all allocations if there's no borrow tracker anyway.
     if ecx.machine.borrow_tracker.is_some() {
         ecx.memory.alloc_map().iter(|it| {

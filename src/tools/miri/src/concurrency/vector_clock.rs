@@ -16,7 +16,7 @@ use crate::helpers::ToUsize;
 pub(super) struct VectorIdx(u32);
 
 impl VectorIdx {
-    #[inline(always)]
+    #[inline(never)]
     fn to_u32(self) -> u32 {
         self.0
     }

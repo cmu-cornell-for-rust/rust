@@ -577,7 +577,7 @@ pub trait EvalContextExt<'tcx>: crate::MiriInterpCxExt<'tcx> {
         {
             type V = MPlaceTy<'tcx>;
 
-            #[inline(always)]
+            #[inline(never)]
             fn ecx(&self) -> &MiriInterpCx<'tcx> {
                 self.ecx
             }

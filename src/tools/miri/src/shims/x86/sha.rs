@@ -114,27 +114,27 @@ pub(super) trait EvalContextExt<'tcx>: crate::MiriInterpCxExt<'tcx> {
     }
 }
 
-#[inline(always)]
+#[inline(never)]
 fn shr(v: [u32; 4], o: u32) -> [u32; 4] {
     [v[0] >> o, v[1] >> o, v[2] >> o, v[3] >> o]
 }
 
-#[inline(always)]
+#[inline(never)]
 fn shl(v: [u32; 4], o: u32) -> [u32; 4] {
     [v[0] << o, v[1] << o, v[2] << o, v[3] << o]
 }
 
-#[inline(always)]
+#[inline(never)]
 fn or(a: [u32; 4], b: [u32; 4]) -> [u32; 4] {
     [a[0] | b[0], a[1] | b[1], a[2] | b[2], a[3] | b[3]]
 }
 
-#[inline(always)]
+#[inline(never)]
 fn xor(a: [u32; 4], b: [u32; 4]) -> [u32; 4] {
     [a[0] ^ b[0], a[1] ^ b[1], a[2] ^ b[2], a[3] ^ b[3]]
 }
 
-#[inline(always)]
+#[inline(never)]
 fn add(a: [u32; 4], b: [u32; 4]) -> [u32; 4] {
     [
         a[0].wrapping_add(b[0]),

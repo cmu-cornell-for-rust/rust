@@ -180,7 +180,7 @@ impl<'tcx, Prov: Provenance> LocalState<'tcx, Prov> {
     }
 
     /// Read the local's value or error if the local is not yet live or not live anymore.
-    #[inline(always)]
+    #[inline(never)]
     pub(super) fn access(&self) -> InterpResult<'tcx, &Operand<Prov>> {
         match &self.value {
             LocalValue::Dead => throw_ub!(DeadLocal), // could even be "invalid program"?
@@ -190,7 +190,7 @@ impl<'tcx, Prov: Provenance> LocalState<'tcx, Prov> {
 
     /// Overwrite the local. If the local can be overwritten in place, return a reference
     /// to do so; otherwise return the `MemPlace` to consult instead.
-    #[inline(always)]
+    #[inline(never)]
     pub(super) fn access_mut(&mut self) -> InterpResult<'tcx, &mut Operand<Prov>> {
         match &mut self.value {
             LocalValue::Dead => throw_ub!(DeadLocal), // could even be "invalid program"?
@@ -315,7 +315,7 @@ impl<'tcx, Prov: Provenance, Extra> Frame<'tcx, Prov, Extra> {
 
     /// Returns the address of the buffer where the locals are stored. This is used by `Place` as a
     /// sanity check to detect bugs where we mix up which stack frame a place refers to.
-    #[inline(always)]
+    #[inline(never)]
     pub(super) fn locals_addr(&self) -> usize {
         self.locals.raw.as_ptr().addr()
     }
@@ -562,7 +562,7 @@ impl<'tcx, M: Machine<'tcx>> InterpCx<'tcx, M> {
     }
 
     /// Mark a storage as live, killing the previous content.
-    #[inline(always)]
+    #[inline(never)]
     pub fn storage_live(&mut self, local: mir::Local) -> InterpResult<'tcx> {
         self.storage_live_dyn(local, MemPlaceMeta::None)
     }
@@ -594,7 +594,7 @@ impl<'tcx, M: Machine<'tcx>> InterpCx<'tcx, M> {
 
     /// This is public because it is used by [Aquascope](https://github.com/cognitive-engineering-lab/aquascope/)
     /// to analyze all the locals in a stack frame.
-    #[inline(always)]
+    #[inline(never)]
     pub fn layout_of_local(
         &self,
         frame: &Frame<'tcx, M::Provenance, M::FrameExtra>,

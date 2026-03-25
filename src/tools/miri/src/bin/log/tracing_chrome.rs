@@ -559,7 +559,7 @@ where
     /// since the program start!), with the current thread ID (i.e. `tid`), and with a [Sender] that
     /// can be used to send a [Message] to the thread that collects [Message]s and saves them to the
     /// trace file.
-    #[inline(always)]
+    #[inline(never)]
     fn with_elapsed_micros_subtracting_tracing(&self, f: impl Fn(f64, usize, &Sender<Message>)) {
         THREAD_DATA.with(|value| {
             let mut thread_data = value.borrow_mut();

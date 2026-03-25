@@ -8,6 +8,7 @@ use self::tree::LocationState;
 use crate::borrow_tracker::{AccessKind, GlobalState, GlobalStateInner, ProtectorKind};
 use crate::concurrency::data_race::NaReadType;
 use crate::*;
+use crate::borrow_tracker::AllocState as GlobalAllocState;
 
 pub mod diagnostics;
 mod foreign_access_skipping;
@@ -382,6 +383,15 @@ trait EvalContextPrivExt<'tcx>: crate::MiriInterpCxExt<'tcx> {
     ) -> InterpResult<'tcx, MPlaceTy<'tcx>> {
         let this = self.eval_context_mut();
 
+        if let Ok((alloc_id, _, _)) = this.ptr_try_get_alloc_id(place.ptr(), 0) {
+            let alloc_extra = this.get_alloc_extra(alloc_id)?;
+            match &alloc_extra.borrow_tracker {
+                Some(GlobalAllocState::NoTreeBorrows) => {
+                    return interp_ok(place.clone());
+                }
+                _ => {}     
+            }
+        }
         // Determine the size of the reborrow.
         // For most types this is the entire size of the place, however
         // - when `extern type` is involved we use the size of the known prefix,
@@ -459,7 +469,7 @@ pub trait EvalContextExt<'tcx>: crate::MiriInterpCxExt<'tcx> {
             kind: RetagKind,
         }
         impl<'ecx, 'tcx> RetagVisitor<'ecx, 'tcx> {
-            #[inline(always)] // yes this helps in our benchmarks
+            #[inline(never)] // yes this helps in our benchmarks
             fn retag_ptr_inplace(
                 &mut self,
                 place: &PlaceTy<'tcx>,
@@ -476,7 +486,7 @@ pub trait EvalContextExt<'tcx>: crate::MiriInterpCxExt<'tcx> {
         impl<'ecx, 'tcx> ValueVisitor<'tcx, MiriMachine<'tcx>> for RetagVisitor<'ecx, 'tcx> {
             type V = PlaceTy<'tcx>;
 
-            #[inline(always)]
+            #[inline(never)]
             fn ecx(&self) -> &MiriInterpCx<'tcx> {
                 self.ecx
             }

@@ -207,14 +207,14 @@ pub enum MiriMemoryKind {
 }
 
 impl From<MiriMemoryKind> for MemoryKind {
-    #[inline(always)]
+    #[inline(never)]
     fn from(kind: MiriMemoryKind) -> MemoryKind {
         MemoryKind::Machine(kind)
     }
 }
 
 impl MayLeak for MiriMemoryKind {
-    #[inline(always)]
+    #[inline(never)]
     fn may_leak(self) -> bool {
         use self::MiriMemoryKind::*;
         match self {
@@ -1081,11 +1081,11 @@ pub trait MiriInterpCxExt<'tcx> {
     fn eval_context_mut<'a>(&'a mut self) -> &'a mut MiriInterpCx<'tcx>;
 }
 impl<'tcx> MiriInterpCxExt<'tcx> for MiriInterpCx<'tcx> {
-    #[inline(always)]
+    #[inline(never)]
     fn eval_context_ref(&self) -> &MiriInterpCx<'tcx> {
         self
     }
-    #[inline(always)]
+    #[inline(never)]
     fn eval_context_mut(&mut self) -> &mut MiriInterpCx<'tcx> {
         self
     }
@@ -1110,12 +1110,12 @@ impl<'tcx> Machine<'tcx> for MiriMachine<'tcx> {
 
     const PANIC_ON_ALLOC_FAIL: bool = false;
 
-    #[inline(always)]
+    #[inline(never)]
     fn enforce_alignment(ecx: &MiriInterpCx<'tcx>) -> bool {
         ecx.machine.check_alignment != AlignmentCheck::None
     }
 
-    #[inline(always)]
+    #[inline(never)]
     fn alignment_check(
         ecx: &MiriInterpCx<'tcx>,
         alloc_id: AllocId,
@@ -1161,11 +1161,11 @@ impl<'tcx> Machine<'tcx> for MiriMachine<'tcx> {
         }
     }
 
-    #[inline(always)]
+    #[inline(never)]
     fn enforce_validity(ecx: &MiriInterpCx<'tcx>, _layout: TyAndLayout<'tcx>) -> bool {
         ecx.machine.validation != ValidationMode::No
     }
-    #[inline(always)]
+    #[inline(never)]
     fn enforce_validity_recursively(
         ecx: &InterpCx<'tcx, Self>,
         _layout: TyAndLayout<'tcx>,
@@ -1173,7 +1173,7 @@ impl<'tcx> Machine<'tcx> for MiriMachine<'tcx> {
         ecx.machine.validation == ValidationMode::Deep
     }
 
-    #[inline(always)]
+    #[inline(never)]
     fn ignore_optional_overflow_checks(ecx: &MiriInterpCx<'tcx>) -> bool {
         !ecx.tcx.sess.overflow_checks()
     }
@@ -1216,7 +1216,7 @@ impl<'tcx> Machine<'tcx> for MiriMachine<'tcx> {
         interp_ok(())
     }
 
-    #[inline(always)]
+    #[inline(never)]
     fn find_mir_or_eval_fn(
         ecx: &mut MiriInterpCx<'tcx>,
         instance: ty::Instance<'tcx>,
@@ -1252,7 +1252,7 @@ impl<'tcx> Machine<'tcx> for MiriMachine<'tcx> {
         interp_ok(Some((ecx.load_mir(instance.def, None)?, instance)))
     }
 
-    #[inline(always)]
+    #[inline(never)]
     fn call_extra_fn(
         ecx: &mut MiriInterpCx<'tcx>,
         fn_val: DynSym,
@@ -1266,7 +1266,7 @@ impl<'tcx> Machine<'tcx> for MiriMachine<'tcx> {
         ecx.emulate_dyn_sym(fn_val, abi, &args, dest, ret, unwind)
     }
 
-    #[inline(always)]
+    #[inline(never)]
     fn call_intrinsic(
         ecx: &mut MiriInterpCx<'tcx>,
         instance: ty::Instance<'tcx>,
@@ -1278,7 +1278,7 @@ impl<'tcx> Machine<'tcx> for MiriMachine<'tcx> {
         ecx.call_intrinsic(instance, args, dest, ret, unwind)
     }
 
-    #[inline(always)]
+    #[inline(never)]
     fn assert_panic(
         ecx: &mut MiriInterpCx<'tcx>,
         msg: &mir::AssertMessage<'tcx>,
@@ -1308,7 +1308,7 @@ impl<'tcx> Machine<'tcx> for MiriMachine<'tcx> {
         interp_ok(())
     }
 
-    #[inline(always)]
+    #[inline(never)]
     fn binary_ptr_op(
         ecx: &MiriInterpCx<'tcx>,
         bin_op: mir::BinOp,
@@ -1318,7 +1318,7 @@ impl<'tcx> Machine<'tcx> for MiriMachine<'tcx> {
         ecx.binary_ptr_op(bin_op, left, right)
     }
 
-    #[inline(always)]
+    #[inline(never)]
     fn generate_nan<F1: Float + FloatConvert<F2>, F2: Float>(
         ecx: &InterpCx<'tcx, Self>,
         inputs: &[F1],
@@ -1326,7 +1326,7 @@ impl<'tcx> Machine<'tcx> for MiriMachine<'tcx> {
         ecx.generate_nan(inputs)
     }
 
-    #[inline(always)]
+    #[inline(never)]
     fn apply_float_nondet(
         ecx: &mut InterpCx<'tcx, Self>,
         val: ImmTy<'tcx>,
@@ -1334,17 +1334,17 @@ impl<'tcx> Machine<'tcx> for MiriMachine<'tcx> {
         crate::math::apply_random_float_error_to_imm(ecx, val, 4)
     }
 
-    #[inline(always)]
+    #[inline(never)]
     fn equal_float_min_max<F: Float>(ecx: &MiriInterpCx<'tcx>, a: F, b: F) -> F {
         ecx.equal_float_min_max(a, b)
     }
 
-    #[inline(always)]
+    #[inline(never)]
     fn float_fuse_mul_add(ecx: &InterpCx<'tcx, Self>) -> bool {
         ecx.machine.float_nondet && ecx.machine.rng.borrow_mut().random()
     }
 
-    #[inline(always)]
+    #[inline(never)]
     fn runtime_checks(
         ecx: &InterpCx<'tcx, Self>,
         r: mir::RuntimeChecks,
@@ -1352,7 +1352,7 @@ impl<'tcx> Machine<'tcx> for MiriMachine<'tcx> {
         interp_ok(r.value(ecx.tcx.sess))
     }
 
-    #[inline(always)]
+    #[inline(never)]
     fn thread_local_static_pointer(
         ecx: &mut MiriInterpCx<'tcx>,
         def_id: DefId,
@@ -1427,8 +1427,28 @@ impl<'tcx> Machine<'tcx> for MiriMachine<'tcx> {
             }
         }
         // FIXME: can we somehow preserve the immutability of `ptr`?
+        /*
         let tag = if let Some(borrow_tracker) = &ecx.machine.borrow_tracker {
             borrow_tracker.borrow_mut().root_ptr_tag(alloc_id, &ecx.machine)
+        } else {
+            // Value does not matter, SB is disabled
+            BorTag::default()
+        };
+        */
+        let tag = if let Some(borrow_tracker) = &ecx.machine.borrow_tracker {
+            let alloc_info = ecx.get_alloc_info(alloc_id);
+            let is_global = ecx.tcx.try_get_global_alloc(alloc_id).is_some();
+
+            if alloc_info.kind == AllocKind::LiveData && !is_global {
+                let alloc_extra = ecx.get_alloc_extra(alloc_id)?;
+                if let Some(borrow_tracker::AllocState::NoTreeBorrows) = alloc_extra.borrow_tracker.as_ref() {
+                    BorTag::default()
+                } else {
+                    borrow_tracker.borrow_mut().root_ptr_tag(alloc_id, &ecx.machine)
+                }
+            } else {
+                borrow_tracker.borrow_mut().root_ptr_tag(alloc_id, &ecx.machine)
+            }
         } else {
             // Value does not matter, SB is disabled
             BorTag::default()
@@ -1437,7 +1457,7 @@ impl<'tcx> Machine<'tcx> for MiriMachine<'tcx> {
     }
 
     /// Called on `usize as ptr` casts.
-    #[inline(always)]
+    #[inline(never)]
     fn ptr_from_addr_cast(ecx: &MiriInterpCx<'tcx>, addr: u64) -> InterpResult<'tcx, Pointer> {
         ecx.ptr_from_addr_cast(addr)
     }
@@ -1445,7 +1465,7 @@ impl<'tcx> Machine<'tcx> for MiriMachine<'tcx> {
     /// Called on `ptr as usize` casts.
     /// (Actually computing the resulting `usize` doesn't need machine help,
     /// that's just `Scalar::try_to_int`.)
-    #[inline(always)]
+    #[inline(never)]
     fn expose_provenance(
         ecx: &InterpCx<'tcx, Self>,
         provenance: Self::Provenance,
@@ -1504,7 +1524,7 @@ impl<'tcx> Machine<'tcx> for MiriMachine<'tcx> {
         interp_ok(Cow::Owned(alloc.with_extra(extra)))
     }
 
-    #[inline(always)]
+    #[inline(never)]
     fn before_memory_read(
         _tcx: TyCtxtAt<'tcx>,
         machine: &Self,
@@ -1545,7 +1565,7 @@ impl<'tcx> Machine<'tcx> for MiriMachine<'tcx> {
         interp_ok(())
     }
 
-    #[inline(always)]
+    #[inline(never)]
     fn before_memory_write(
         _tcx: TyCtxtAt<'tcx>,
         machine: &mut Self,
@@ -1599,7 +1619,7 @@ impl<'tcx> Machine<'tcx> for MiriMachine<'tcx> {
         interp_ok(())
     }
 
-    #[inline(always)]
+    #[inline(never)]
     fn before_memory_deallocation(
         _tcx: TyCtxtAt<'tcx>,
         machine: &mut Self,
@@ -1645,7 +1665,7 @@ impl<'tcx> Machine<'tcx> for MiriMachine<'tcx> {
         interp_ok(())
     }
 
-    #[inline(always)]
+    #[inline(never)]
     fn retag_ptr_value(
         ecx: &mut InterpCx<'tcx, Self>,
         kind: mir::RetagKind,
@@ -1658,7 +1678,7 @@ impl<'tcx> Machine<'tcx> for MiriMachine<'tcx> {
         }
     }
 
-    #[inline(always)]
+    #[inline(never)]
     fn retag_place_contents(
         ecx: &mut InterpCx<'tcx, Self>,
         kind: mir::RetagKind,
@@ -1691,7 +1711,7 @@ impl<'tcx> Machine<'tcx> for MiriMachine<'tcx> {
         interp_ok(())
     }
 
-    #[inline(always)]
+    #[inline(never)]
     fn init_frame(
         ecx: &mut InterpCx<'tcx, Self>,
         frame: Frame<'tcx, Provenance>,
@@ -1771,7 +1791,7 @@ impl<'tcx> Machine<'tcx> for MiriMachine<'tcx> {
         interp_ok(())
     }
 
-    #[inline(always)]
+    #[inline(never)]
     fn after_stack_push(ecx: &mut InterpCx<'tcx, Self>) -> InterpResult<'tcx> {
         if ecx.frame().extra.user_relevance >= ecx.active_thread_ref().current_user_relevance() {
             // We just pushed a frame that's at least as relevant as the so-far most relevant frame.
@@ -1809,7 +1829,7 @@ impl<'tcx> Machine<'tcx> for MiriMachine<'tcx> {
         interp_ok(())
     }
 
-    #[inline(always)]
+    #[inline(never)]
     fn after_stack_pop(
         ecx: &mut InterpCx<'tcx, Self>,
         frame: Frame<'tcx, Provenance, FrameExtra<'tcx>>,

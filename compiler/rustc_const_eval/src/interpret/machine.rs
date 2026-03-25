@@ -150,7 +150,7 @@ pub trait Machine<'tcx>: Sized {
     fn enforce_alignment(ecx: &InterpCx<'tcx, Self>) -> bool;
 
     /// Gives the machine a chance to detect more misalignment than the built-in checks would catch.
-    #[inline(always)]
+    #[inline(never)]
     fn alignment_check(
         _ecx: &InterpCx<'tcx, Self>,
         _alloc_id: AllocId,
@@ -420,7 +420,7 @@ pub trait Machine<'tcx>: Sized {
     /// need to mutate.
     ///
     /// This is not invoked for ZST accesses, as no read actually happens.
-    #[inline(always)]
+    #[inline(never)]
     fn before_memory_read(
         _tcx: TyCtxtAt<'tcx>,
         _machine: &Self,
@@ -451,7 +451,7 @@ pub trait Machine<'tcx>: Sized {
     /// This is not invoked for ZST accesses, as no write actually happens.
     /// `ptr` will always be a pointer with the provenance in `prov` pointing to the beginning of
     /// `range`.
-    #[inline(always)]
+    #[inline(never)]
     fn before_memory_write(
         _tcx: TyCtxtAt<'tcx>,
         _machine: &mut Self,
@@ -466,7 +466,7 @@ pub trait Machine<'tcx>: Sized {
     /// Hook for performing extra operations on a memory deallocation.
     /// `ptr` will always be a pointer with the provenance in `prov` pointing to the beginning of
     /// the allocation.
-    #[inline(always)]
+    #[inline(never)]
     fn before_memory_deallocation(
         _tcx: TyCtxtAt<'tcx>,
         _machine: &mut Self,
@@ -544,7 +544,7 @@ pub trait Machine<'tcx>: Sized {
 
     /// Called immediately after a stack frame got popped, but before jumping back to the caller.
     /// The `locals` have already been destroyed!
-    #[inline(always)]
+    #[inline(never)]
     fn after_stack_pop(
         _ecx: &mut InterpCx<'tcx, Self>,
         _frame: Frame<'tcx, Self::Provenance, Self::FrameExtra>,
@@ -557,7 +557,7 @@ pub trait Machine<'tcx>: Sized {
 
     /// Called immediately after an "immediate" local variable is read in a given frame
     /// (i.e., this is called for reads that do not end up accessing addressable memory).
-    #[inline(always)]
+    #[inline(never)]
     fn after_local_read(
         _ecx: &InterpCx<'tcx, Self>,
         _frame: &Frame<'tcx, Self::Provenance, Self::FrameExtra>,
@@ -569,7 +569,7 @@ pub trait Machine<'tcx>: Sized {
     /// Called immediately after an "immediate" local variable is assigned a new value
     /// (i.e., this is called for writes that do not end up in memory).
     /// `storage_live` indicates whether this is the initial write upon `StorageLive`.
-    #[inline(always)]
+    #[inline(never)]
     fn after_local_write(
         _ecx: &mut InterpCx<'tcx, Self>,
         _local: mir::Local,
@@ -580,7 +580,7 @@ pub trait Machine<'tcx>: Sized {
 
     /// Called immediately after actual memory was allocated for a local
     /// but before the local's stack frame is updated to point to that memory.
-    #[inline(always)]
+    #[inline(never)]
     fn after_local_moved_to_memory(
         _ecx: &mut InterpCx<'tcx, Self>,
         _local: mir::Local,
@@ -616,7 +616,7 @@ pub trait Machine<'tcx>: Sized {
     /// supposedly be optimized out completely. To enable tracing, override this trait method and
     /// return `span.entered()`. Also see [crate::enter_trace_span].
     #[must_use]
-    #[inline(always)]
+    #[inline(never)]
     fn enter_trace_span(_span: impl FnOnce() -> tracing::Span) -> impl EnteredTraceSpan {
         ()
     }
@@ -639,12 +639,12 @@ pub macro compile_time_machine(<$tcx: lifetime>) {
     type FrameExtra = ();
     type Bytes = Box<[u8]>;
 
-    #[inline(always)]
+    #[inline(never)]
     fn ignore_optional_overflow_checks(_ecx: &InterpCx<$tcx, Self>) -> bool {
         false
     }
 
-    #[inline(always)]
+    #[inline(never)]
     fn unwind_terminate(
         _ecx: &mut InterpCx<$tcx, Self>,
         _reason: mir::UnwindTerminateReason,
@@ -652,7 +652,7 @@ pub macro compile_time_machine(<$tcx: lifetime>) {
         unreachable!("unwinding cannot happen during compile-time evaluation")
     }
 
-    #[inline(always)]
+    #[inline(never)]
     fn check_fn_target_features(
         _ecx: &InterpCx<$tcx, Self>,
         _instance: ty::Instance<$tcx>,
@@ -662,7 +662,7 @@ pub macro compile_time_machine(<$tcx: lifetime>) {
         interp_ok(())
     }
 
-    #[inline(always)]
+    #[inline(never)]
     fn call_extra_fn(
         _ecx: &mut InterpCx<$tcx, Self>,
         fn_val: !,
@@ -675,12 +675,12 @@ pub macro compile_time_machine(<$tcx: lifetime>) {
         match fn_val {}
     }
 
-    #[inline(always)]
+    #[inline(never)]
     fn float_fuse_mul_add(_ecx: &InterpCx<$tcx, Self>) -> bool {
         true
     }
 
-    #[inline(always)]
+    #[inline(never)]
     fn adjust_global_allocation<'b>(
         _ecx: &InterpCx<$tcx, Self>,
         _id: AllocId,
@@ -708,7 +708,7 @@ pub macro compile_time_machine(<$tcx: lifetime>) {
         interp_ok(Pointer::new(ecx.tcx.reserve_and_set_static_alloc(def_id).into(), Size::ZERO))
     }
 
-    #[inline(always)]
+    #[inline(never)]
     fn adjust_alloc_root_pointer(
         _ecx: &InterpCx<$tcx, Self>,
         ptr: Pointer<CtfeProvenance>,
@@ -717,7 +717,7 @@ pub macro compile_time_machine(<$tcx: lifetime>) {
         interp_ok(ptr)
     }
 
-    #[inline(always)]
+    #[inline(never)]
     fn ptr_from_addr_cast(
         _ecx: &InterpCx<$tcx, Self>,
         addr: u64,
@@ -728,7 +728,7 @@ pub macro compile_time_machine(<$tcx: lifetime>) {
         interp_ok(Pointer::without_provenance(addr))
     }
 
-    #[inline(always)]
+    #[inline(never)]
     fn ptr_get_alloc(
         _ecx: &InterpCx<$tcx, Self>,
         ptr: Pointer<CtfeProvenance>,
@@ -738,7 +738,7 @@ pub macro compile_time_machine(<$tcx: lifetime>) {
         Some((prov.alloc_id(), offset, prov.immutable()))
     }
 
-    #[inline(always)]
+    #[inline(never)]
     fn get_global_alloc_salt(
         _ecx: &InterpCx<$tcx, Self>,
         _instance: Option<ty::Instance<$tcx>>,

@@ -133,7 +133,7 @@ impl<'tcx, M: Machine<'tcx>> InterpCx<'tcx, M> {
     /// This inherent method takes priority over the trait method with the same name in LayoutOf,
     /// and allows wrapping the actual [LayoutOf::layout_of] with a tracing span.
     /// See [LayoutOf::layout_of] for the original documentation.
-    #[inline(always)]
+    #[inline(never)]
     pub fn layout_of(&self, ty: Ty<'tcx>) -> Result<TyAndLayout<'tcx>, InterpErrorKind<'tcx>> {
         let _trace = enter_trace_span!(M, layouting::layout_of, ty = ?ty.kind());
         LayoutOf::layout_of(self, ty)
@@ -142,7 +142,7 @@ impl<'tcx, M: Machine<'tcx>> InterpCx<'tcx, M> {
     /// This inherent method takes priority over the trait method with the same name in FnAbiOf,
     /// and allows wrapping the actual [FnAbiOf::fn_abi_of_fn_ptr] with a tracing span.
     /// See [FnAbiOf::fn_abi_of_fn_ptr] for the original documentation.
-    #[inline(always)]
+    #[inline(never)]
     pub fn fn_abi_of_fn_ptr(
         &self,
         sig: ty::PolyFnSig<'tcx>,
@@ -155,7 +155,7 @@ impl<'tcx, M: Machine<'tcx>> InterpCx<'tcx, M> {
     /// This inherent method takes priority over the trait method with the same name in FnAbiOf,
     /// and allows wrapping the actual [FnAbiOf::fn_abi_of_instance] with a tracing span.
     /// See [FnAbiOf::fn_abi_of_instance] for the original documentation.
-    #[inline(always)]
+    #[inline(never)]
     pub fn fn_abi_of_instance(
         &self,
         instance: ty::Instance<'tcx>,
@@ -263,7 +263,7 @@ impl<'tcx, M: Machine<'tcx>> InterpCx<'tcx, M> {
 
     /// Returns the span of the currently executed statement/terminator.
     /// This is the span typically used for error reporting.
-    #[inline(always)]
+    #[inline(never)]
     pub fn cur_span(&self) -> Span {
         // This deliberately does *not* honor `requires_caller_location` since it is used for much
         // more than just panics.
@@ -274,29 +274,29 @@ impl<'tcx, M: Machine<'tcx>> InterpCx<'tcx, M> {
         M::stack(self)
     }
 
-    #[inline(always)]
+    #[inline(never)]
     pub(crate) fn stack_mut(&mut self) -> &mut Vec<Frame<'tcx, M::Provenance, M::FrameExtra>> {
         M::stack_mut(self)
     }
 
-    #[inline(always)]
+    #[inline(never)]
     pub fn frame_idx(&self) -> usize {
         let stack = self.stack();
         assert!(!stack.is_empty());
         stack.len() - 1
     }
 
-    #[inline(always)]
+    #[inline(never)]
     pub fn frame(&self) -> &Frame<'tcx, M::Provenance, M::FrameExtra> {
         self.stack().last().expect("no call frames exist")
     }
 
-    #[inline(always)]
+    #[inline(never)]
     pub fn frame_mut(&mut self) -> &mut Frame<'tcx, M::Provenance, M::FrameExtra> {
         self.stack_mut().last_mut().expect("no call frames exist")
     }
 
-    #[inline(always)]
+    #[inline(never)]
     pub fn body(&self) -> &'tcx mir::Body<'tcx> {
         self.frame().body
     }

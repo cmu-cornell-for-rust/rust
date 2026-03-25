@@ -1028,7 +1028,7 @@ impl<'rt, 'tcx, M: Machine<'tcx>> ValidityVisitor<'rt, 'tcx, M> {
 impl<'rt, 'tcx, M: Machine<'tcx>> ValueVisitor<'tcx, M> for ValidityVisitor<'rt, 'tcx, M> {
     type V = PlaceTy<'tcx, M::Provenance>;
 
-    #[inline(always)]
+    #[inline(never)]
     fn ecx(&self) -> &InterpCx<'tcx, M> {
         self.ecx
     }
@@ -1078,7 +1078,7 @@ impl<'rt, 'tcx, M: Machine<'tcx>> ValueVisitor<'tcx, M> for ValidityVisitor<'rt,
         self.with_elem(name, move |this| this.visit_value(new_val))
     }
 
-    #[inline(always)]
+    #[inline(never)]
     fn visit_union(
         &mut self,
         val: &PlaceTy<'tcx, M::Provenance>,
@@ -1380,7 +1380,7 @@ impl<'tcx, M: Machine<'tcx>> InterpCx<'tcx, M> {
     /// `constant` controls whether this must satisfy the rules for constants:
     /// - no pointers to statics.
     /// - no `UnsafeCell` or non-ZST `&mut`.
-    #[inline(always)]
+    #[inline(never)]
     pub(crate) fn const_validate_operand(
         &mut self,
         val: &PlaceTy<'tcx, M::Provenance>,
@@ -1400,7 +1400,7 @@ impl<'tcx, M: Machine<'tcx>> InterpCx<'tcx, M> {
     /// This function checks the data at `val` to be runtime-valid.
     /// `val` is assumed to cover valid memory if it is an indirect operand.
     /// It will error if the bits at the destination do not match the ones described by the layout.
-    #[inline(always)]
+    #[inline(never)]
     pub fn validate_operand(
         &mut self,
         val: &PlaceTy<'tcx, M::Provenance>,

@@ -12,6 +12,7 @@
 
 use std::ops::Range;
 use std::{cmp, fmt, mem};
+use std::cell::Cell;
 
 use rustc_abi::Size;
 use rustc_data_structures::fx::FxHashSet;
@@ -719,6 +720,7 @@ impl<'tcx> Tree {
 /// Integration with the BorTag garbage collector
 impl Tree {
     pub fn remove_unreachable_tags(&mut self, live_tags: &FxHashSet<BorTag>) {
+        trace!("Provenance GC invoked");
         for i in 0..(self.roots.len()) {
             self.remove_useless_children(self.roots[i], live_tags);
         }
@@ -819,6 +821,7 @@ impl Tree {
         // Since we do a post-traversal (by deleting nodes only after handling all children),
         // we also need to be a bit smarter than "pop node, push all children."
         let mut stack = vec![(root, 0)];
+        let mut removed_count = 0;
         while let Some((tag, nth_child)) = stack.last_mut() {
             let node = self.nodes.get(*tag).unwrap();
             if *nth_child < node.children.len() {
@@ -841,6 +844,7 @@ impl Tree {
                     if self.is_useless(*idx, live) {
                         // Delete `idx` node everywhere else.
                         self.remove_useless_node(*idx);
+                        removed_count += 1;
                         // And delete it from children_of_node.
                         false
                     } else {
@@ -848,6 +852,7 @@ impl Tree {
                             // `nextchild` is our grandchild, and will become our direct child.
                             // Delete the in-between node, `idx`.
                             self.remove_useless_node(*idx);
+                            removed_count += 1;
                             // Set the new child's parent.
                             self.nodes.get_mut(nextchild).unwrap().parent = Some(*tag);
                             // Save the new child in children_of_node.
@@ -865,6 +870,12 @@ impl Tree {
                 continue;
             }
         }
+        let root_tag = self.nodes.get(root).unwrap().tag;
+        trace!(
+            "Removed {} useless children from root tag {:?}",
+            removed_count,
+            root_tag
+        );
     }
 }
 
@@ -996,14 +1007,25 @@ impl<'tcx> LocationTree {
         //
         // `loc_range` is only for diagnostics (it is the range of
         // the `RangeMap` on which we are currently working).
+        
+        let visited_nodes = Cell::new(0);
+        let skipped_nodes = Cell::new(0);
+        
         let node_skipper = |args: &NodeAppArgs<'_, LocationTree>| -> ContinueTraversal {
             let node = args.nodes.get(args.idx).unwrap();
             let perm = args.data.perms.get(args.idx);
 
             let old_state = perm.copied().unwrap_or_else(|| node.default_location_state());
-            old_state.skip_if_known_noop(access_kind, args.rel_pos)
+            // old_state.skip_if_known_noop(access_kind, args.rel_pos)
+            let decision = old_state.skip_if_known_noop(access_kind, args.rel_pos);
+
+            if matches!(decision, ContinueTraversal::SkipSelfAndChildren) {
+                skipped_nodes.set(skipped_nodes.get() + 1);
+            }
+            decision
         };
         let node_app = |args: NodeAppArgs<'_, LocationTree>| {
+            visited_nodes.set(visited_nodes.get() + 1);
             let node = args.nodes.get_mut(args.idx).unwrap();
             let mut perm = args.data.perms.entry(args.idx);
 
@@ -1034,13 +1056,23 @@ impl<'tcx> LocationTree {
         };
 
         let visitor = TreeVisitor { nodes, data: self };
-        match visit_children {
+        // match visit_children {
+        let result = match visit_children {
             ChildrenVisitMode::VisitChildrenOfAccessed =>
                 visitor.traverse_this_parents_children_other(access_source, node_skipper, node_app),
             ChildrenVisitMode::SkipChildrenOfAccessed =>
                 visitor.traverse_nonchildren(access_source, node_skipper, node_app),
-        }
-        .into()
+        // }
+        // .into()
+        };
+        let source_tag = nodes.get(access_source).unwrap().tag;
+        trace!(
+            "Normal access from source tag {:?}: visited {} nodes, skipped {} nodes",
+            source_tag,
+            visited_nodes.get(),
+            skipped_nodes.get()
+        );
+        result.into()
     }
 
     /// Performs a wildcard access on the tree with root `root`. Takes the `access_relatedness`
@@ -1076,6 +1108,9 @@ impl<'tcx> LocationTree {
         // Whether there is an exposed node in this tree that allows this access.
         let mut has_valid_exposed = false;
 
+        let visited_nodes = Cell::new(0);
+        let skipped_nodes = Cell::new(0);
+
         // This does a traversal across the tree updating children before their parents. The
         // difference to `perform_normal_access` is that we take the access relatedness from
         // the wildcard tracking state of the node instead of from the visitor itself.
@@ -1105,12 +1140,18 @@ impl<'tcx> LocationTree {
                     && let Some(relatedness) = relatedness.to_relatedness()
                 {
                     // We can use the usual SIFA machinery to skip nodes.
-                    old_state.skip_if_known_noop(access_kind, relatedness)
+                    // old_state.skip_if_known_noop(access_kind, relatedness)
+                    let decision = old_state.skip_if_known_noop(access_kind, relatedness);
+                    if matches!(decision, ContinueTraversal::SkipSelfAndChildren) {
+                        skipped_nodes.set(skipped_nodes.get() + 1);
+                    }
+                    decision
                 } else {
                     ContinueTraversal::Recurse
                 }
             },
             |args| {
+                visited_nodes.set(visited_nodes.get() + 1);
                 let node = args.nodes.get_mut(args.idx).unwrap();
 
                 let protected = global.borrow().protected_tags.contains_key(&node.tag);
@@ -1166,6 +1207,13 @@ impl<'tcx> LocationTree {
                 })
             },
         )?;
+        let root_tag = nodes.get(root).unwrap().tag;       
+        trace!(
+            "Wildcard access from root tag {:?}: visited {} nodes, skipped {} nodes",
+            root_tag,
+            visited_nodes.get(),
+            skipped_nodes.get()
+        );
         // If there is no exposed node in this tree that allows this access, then the access *must*
         // be foreign to the entire subtree. Foreign accesses are only possible on wildcard subtrees
         // as there are no ancestors to the main root. So if we do not find a valid exposed node in

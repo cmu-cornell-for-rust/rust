@@ -47,7 +47,7 @@ pub trait SyncObj: Any {
 }
 
 impl dyn SyncObj {
-    #[inline(always)]
+    #[inline(never)]
     pub fn downcast_ref<T: Any>(&self) -> Option<&T> {
         let x: &dyn Any = self;
         x.downcast_ref()

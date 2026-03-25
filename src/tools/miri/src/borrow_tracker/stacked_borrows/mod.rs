@@ -521,7 +521,7 @@ impl Stacks {
         Stacks::new(size, perm, base_tag, id, machine)
     }
 
-    #[inline(always)]
+    #[inline(never)]
     pub fn before_memory_read<'ecx, 'tcx>(
         &mut self,
         alloc_id: AllocId,
@@ -545,7 +545,7 @@ impl Stacks {
         })
     }
 
-    #[inline(always)]
+    #[inline(never)]
     pub fn before_memory_write<'tcx>(
         &mut self,
         alloc_id: AllocId,
@@ -566,7 +566,7 @@ impl Stacks {
         })
     }
 
-    #[inline(always)]
+    #[inline(never)]
     pub fn before_memory_deallocation<'tcx>(
         &mut self,
         alloc_id: AllocId,
@@ -904,7 +904,7 @@ pub trait EvalContextExt<'tcx>: crate::MiriInterpCxExt<'tcx> {
             in_field: bool,
         }
         impl<'ecx, 'tcx> RetagVisitor<'ecx, 'tcx> {
-            #[inline(always)] // yes this helps in our benchmarks
+            #[inline(never)] // yes this helps in our benchmarks
             fn retag_ptr_inplace(
                 &mut self,
                 place: &PlaceTy<'tcx>,
@@ -923,7 +923,7 @@ pub trait EvalContextExt<'tcx>: crate::MiriInterpCxExt<'tcx> {
         impl<'ecx, 'tcx> ValueVisitor<'tcx, MiriMachine<'tcx>> for RetagVisitor<'ecx, 'tcx> {
             type V = PlaceTy<'tcx>;
 
-            #[inline(always)]
+            #[inline(never)]
             fn ecx(&self) -> &MiriInterpCx<'tcx> {
                 self.ecx
             }

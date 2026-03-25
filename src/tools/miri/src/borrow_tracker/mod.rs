@@ -1,6 +1,7 @@
 use std::cell::RefCell;
 use std::fmt;
 use std::num::NonZero;
+use rand::Rng;
 
 use rustc_abi::Size;
 use rustc_data_structures::fx::{FxHashMap, FxHashSet};
@@ -224,6 +225,7 @@ pub enum BorrowTrackerMethod {
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct TreeBorrowsParams {
     pub precise_interior_mut: bool,
+    pub sampling_freq: Option<u8>,
 }
 
 impl BorrowTrackerMethod {
@@ -253,10 +255,18 @@ impl GlobalStateInner {
                 AllocState::StackedBorrows(Box::new(RefCell::new(Stacks::new_allocation(
                     id, alloc_size, self, kind, machine,
                 )))),
-            BorrowTrackerMethod::TreeBorrows { .. } =>
+            BorrowTrackerMethod::TreeBorrows(params) => {
+                let skip_probability = params.sampling_freq.map(|v| v as f64 / 100.0).unwrap_or(0.0);
+                if skip_probability > 0.0 {
+                    let mut rng = rand::rng();
+                    if rng.random_bool(skip_probability) {
+                        return AllocState::NoTreeBorrows;
+                    }
+                }
                 AllocState::TreeBorrows(Box::new(RefCell::new(Tree::new_allocation(
                     id, alloc_size, self, kind, machine,
-                )))),
+                ))))
+            }
         }
     }
 }
@@ -308,7 +318,13 @@ pub trait EvalContextExt<'tcx>: crate::MiriInterpCxExt<'tcx> {
         let method = this.machine.borrow_tracker.as_ref().unwrap().borrow().borrow_tracker_method;
         match method {
             BorrowTrackerMethod::StackedBorrows => this.sb_expose_tag(alloc_id, tag),
-            BorrowTrackerMethod::TreeBorrows { .. } => this.tb_expose_tag(alloc_id, tag),
+            BorrowTrackerMethod::TreeBorrows { .. } => {
+                let alloc_extra = this.get_alloc_extra(alloc_id)?;
+                if let Some(AllocState::NoTreeBorrows) = alloc_extra.borrow_tracker {
+                    return interp_ok(());
+                }
+                this.tb_expose_tag(alloc_id, tag)
+            }
         }
     }
 
@@ -325,8 +341,15 @@ pub trait EvalContextExt<'tcx>: crate::MiriInterpCxExt<'tcx> {
                 this.tcx.tcx.dcx().warn("Stacked Borrows does not support named pointers; `miri_pointer_name` is a no-op");
                 interp_ok(())
             }
-            BorrowTrackerMethod::TreeBorrows { .. } =>
-                this.tb_give_pointer_debug_name(ptr, nth_parent, name),
+            BorrowTrackerMethod::TreeBorrows { .. } => {
+                if let Ok((alloc_id, _, _)) = this.ptr_try_get_alloc_id(ptr, 0) {
+                    let alloc_extra = this.get_alloc_extra(alloc_id)?;
+                    if let Some(AllocState::NoTreeBorrows) = alloc_extra.borrow_tracker {
+                        return interp_ok(());
+                    }
+                }
+                this.tb_give_pointer_debug_name(ptr, nth_parent, name)
+            }
         }
     }
 
@@ -339,7 +362,13 @@ pub trait EvalContextExt<'tcx>: crate::MiriInterpCxExt<'tcx> {
         let method = borrow_tracker.borrow().borrow_tracker_method;
         match method {
             BorrowTrackerMethod::StackedBorrows => this.print_stacks(alloc_id),
-            BorrowTrackerMethod::TreeBorrows { .. } => this.print_tree(alloc_id, show_unnamed),
+            BorrowTrackerMethod::TreeBorrows { .. } => {
+                let alloc_extra = this.get_alloc_extra(alloc_id)?;
+                if let Some(AllocState::NoTreeBorrows) = alloc_extra.borrow_tracker {
+                    return interp_ok(());
+                }
+                this.print_tree(alloc_id, show_unnamed)
+            }
         }
     }
 
@@ -391,6 +420,7 @@ pub enum AllocState {
     StackedBorrows(Box<RefCell<stacked_borrows::AllocState>>),
     /// Data corresponding to Tree Borrows
     TreeBorrows(Box<RefCell<tree_borrows::AllocState>>),
+    NoTreeBorrows,
 }
 
 impl machine::AllocExtra<'_> {
@@ -439,6 +469,7 @@ impl AllocState {
                     range,
                     machine,
                 ),
+            AllocState::NoTreeBorrows => interp_ok(()),
         }
     }
 
@@ -461,6 +492,7 @@ impl AllocState {
                     range,
                     machine,
                 ),
+            AllocState::NoTreeBorrows => interp_ok(()),
         }
     }
 
@@ -478,6 +510,7 @@ impl AllocState {
                 sb.get_mut().before_memory_deallocation(alloc_id, prov_extra, size, machine),
             AllocState::TreeBorrows(tb) =>
                 tb.get_mut().before_memory_deallocation(alloc_id, prov_extra, size, machine),
+            AllocState::NoTreeBorrows => interp_ok(()),
         }
     }
 
@@ -486,6 +519,7 @@ impl AllocState {
         match self {
             AllocState::StackedBorrows(sb) => sb.borrow_mut().remove_unreachable_tags(tags),
             AllocState::TreeBorrows(tb) => tb.borrow_mut().remove_unreachable_tags(tags),
+            AllocState::NoTreeBorrows => (),
         }
     }
 
@@ -506,6 +540,7 @@ impl AllocState {
             AllocState::StackedBorrows(_sb) => interp_ok(()),
             AllocState::TreeBorrows(tb) =>
                 tb.borrow_mut().release_protector(machine, global, tag, alloc_id),
+            AllocState::NoTreeBorrows => interp_ok(()),
         }
     }
 }
@@ -516,6 +551,7 @@ impl VisitProvenance for AllocState {
         match self {
             AllocState::StackedBorrows(sb) => sb.visit_provenance(visit),
             AllocState::TreeBorrows(tb) => tb.visit_provenance(visit),
+            AllocState::NoTreeBorrows => (),
         }
     }
 }

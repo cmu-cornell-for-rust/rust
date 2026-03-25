@@ -18,26 +18,26 @@ pub trait ValueVisitor<'tcx, M: Machine<'tcx>>: Sized {
     fn ecx(&self) -> &InterpCx<'tcx, M>;
 
     /// `read_discriminant` can be hooked for better error messages.
-    #[inline(always)]
+    #[inline(never)]
     fn read_discriminant(&mut self, v: &Self::V) -> InterpResult<'tcx, VariantIdx> {
         self.ecx().read_discriminant(&v.to_op(self.ecx())?)
     }
 
     // Recursive actions, ready to be overloaded.
     /// Visits the given value, dispatching as appropriate to more specialized visitors.
-    #[inline(always)]
+    #[inline(never)]
     fn visit_value(&mut self, v: &Self::V) -> InterpResult<'tcx> {
         self.walk_value(v)
     }
     /// Visits the given value as a union. No automatic recursion can happen here.
-    #[inline(always)]
+    #[inline(never)]
     fn visit_union(&mut self, _v: &Self::V, _fields: NonZero<usize>) -> InterpResult<'tcx> {
         interp_ok(())
     }
     /// Visits the given value as the pointer of a `Box`. There is nothing to recurse into.
     /// The type of `v` will be a raw pointer to `T`, but this is a field of `Box<T>` and the
     /// pointee type is the actual `T`. `box_ty` provides the full type of the `Box` itself.
-    #[inline(always)]
+    #[inline(never)]
     fn visit_box(&mut self, _box_ty: Ty<'tcx>, _v: &Self::V) -> InterpResult<'tcx> {
         interp_ok(())
     }
@@ -47,7 +47,7 @@ pub trait ValueVisitor<'tcx, M: Machine<'tcx>>: Sized {
     /// and new (inner) value.
     /// This gives the visitor the chance to track the stack of nested fields that
     /// we are descending through.
-    #[inline(always)]
+    #[inline(never)]
     fn visit_field(
         &mut self,
         _old_val: &Self::V,
@@ -59,7 +59,7 @@ pub trait ValueVisitor<'tcx, M: Machine<'tcx>>: Sized {
     /// Called when recursing into an enum variant.
     /// This gives the visitor the chance to track the stack of nested fields that
     /// we are descending through.
-    #[inline(always)]
+    #[inline(never)]
     fn visit_variant(
         &mut self,
         _old_val: &Self::V,
