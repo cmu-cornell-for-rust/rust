@@ -21,10 +21,21 @@ use rustc_data_structures::fx::FxHashMap;
 use crate::helpers::ToUsize;
 
 /// Intermediate key between a UniKeyMap and a UniValMap.
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct UniIndex {
     idx: u32,
 }
+
+impl UniIndex {
+    pub fn new(idx: u32) -> Self {
+        UniIndex { idx }
+    }
+
+    pub fn as_u32(&self) -> u32 {
+        self.idx
+    }
+}
+
 impl Debug for UniIndex {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.idx.fmt(f)
@@ -130,6 +141,10 @@ where
     /// is not yet present.
     pub fn get_or_insert(&mut self, key: K) -> UniIndex {
         self.get(&key).unwrap_or_else(|| self.insert(key))
+    }
+
+    pub fn key_for_index(&self, idx: UniIndex) -> Option<&K> {
+        self.mapping.iter().find_map(|(k, &v)| if v == idx.as_u32() { Some(k) } else { None })
     }
 
     /// Return whatever index this key was using to the deassigned pool.

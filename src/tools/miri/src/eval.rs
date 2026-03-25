@@ -22,6 +22,8 @@ use crate::concurrency::thread::TlsAllocAction;
 use crate::diagnostics::report_leaks;
 use crate::shims::{global_ctor, tls};
 use crate::*;
+use crate::borrow_tracker::AllocState;
+use crate::borrow_tracker::tree_borrows::fsm::flush_global_stats;
 
 #[derive(Copy, Clone, Debug)]
 pub enum MiriEntryFnType {
@@ -480,6 +482,18 @@ pub fn eval_entry<'tcx>(
         ecx.handle_ice();
         panic::resume_unwind(panic_payload)
     });
+    if let Some(global) = &ecx.machine.borrow_tracker {
+        let global = global.borrow();
+
+        for alloc_id in global.alloc_ids() {
+            if let Some((_, alloc)) = ecx.memory.alloc_map().get(*alloc_id) {
+                if let Some(AllocState::TreeBorrows(tb)) = &alloc.extra.borrow_tracker {
+                    tb.borrow().flush_traces_to_file();
+                }
+            }
+        }
+        flush_global_stats();
+    }
     // Obtain the result of the execution. This is always an `Err`, but that doesn't necessarily
     // indicate an error.
     let Err(res) = res.report_err();

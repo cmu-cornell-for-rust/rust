@@ -8,8 +8,10 @@ use self::tree::LocationState;
 use crate::borrow_tracker::{AccessKind, GlobalState, GlobalStateInner, ProtectorKind};
 use crate::concurrency::data_race::NaReadType;
 use crate::*;
+use crate::borrow_tracker::AllocState as GlobalAllocState;
 
 pub mod diagnostics;
+pub mod fsm;
 mod foreign_access_skipping;
 mod perms;
 mod tree;
@@ -382,6 +384,15 @@ trait EvalContextPrivExt<'tcx>: crate::MiriInterpCxExt<'tcx> {
     ) -> InterpResult<'tcx, MPlaceTy<'tcx>> {
         let this = self.eval_context_mut();
 
+        if let Ok((alloc_id, _, _)) = this.ptr_try_get_alloc_id(place.ptr(), 0) {
+            let alloc_extra = this.get_alloc_extra(alloc_id)?;
+            match &alloc_extra.borrow_tracker {
+                Some(GlobalAllocState::NoTreeBorrows) => {
+                    return interp_ok(place.clone());
+                }
+                _ => {}
+            }
+        }
         // Determine the size of the reborrow.
         // For most types this is the entire size of the place, however
         // - when `extern type` is involved we use the size of the known prefix,

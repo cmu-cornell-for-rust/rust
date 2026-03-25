@@ -210,7 +210,7 @@ fn remove_unreachable_allocs<'tcx>(ecx: &mut MiriInterpCx<'tcx>, allocs: FxHashS
     ecx.machine.symbolic_alignment.borrow_mut().retain(|id, _| allocs.is_live(*id));
     ecx.machine.alloc_addresses.borrow_mut().remove_unreachable_allocs(&allocs);
     if let Some(borrow_tracker) = &ecx.machine.borrow_tracker {
-        borrow_tracker.borrow_mut().remove_unreachable_allocs(&allocs);
+        borrow_tracker.borrow_mut().remove_unreachable_allocs(&allocs, &ecx.memory);
     }
     // Clean up core (non-Miri-specific) state.
     ecx.remove_unreachable_allocs(&allocs.collected);
@@ -219,6 +219,7 @@ fn remove_unreachable_allocs<'tcx>(ecx: &mut MiriInterpCx<'tcx>, allocs: FxHashS
 impl<'tcx> EvalContextExt<'tcx> for crate::MiriInterpCx<'tcx> {}
 pub trait EvalContextExt<'tcx>: MiriInterpCxExt<'tcx> {
     fn run_provenance_gc(&mut self) {
+        trace!("Provenance GC invoked");
         let this = self.eval_context_mut();
 
         // We collect all tags and AllocId from every part of the interpreter.

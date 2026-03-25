@@ -512,7 +512,26 @@ fn main() -> ExitCode {
             miri_config.borrow_tracker =
                 Some(BorrowTrackerMethod::TreeBorrows(TreeBorrowsParams {
                     precise_interior_mut: true,
+                    sampling_freq: None,
                 }));
+        } else if arg.starts_with("-Zmiri-selective-tree-borrows") {
+            let value_str = arg.split('=').nth(1)
+                .unwrap_or_else(|| fatal_error!("Expected a value for -Zmiri-selective-tree-borrows"));                     
+            let sampling_value: f64 = value_str.parse().unwrap_or_else(|_| {
+                fatal_error!(
+                    "Expected a float value for -Zmiri-selective-tree-borrows, got `{}`",
+                    value_str
+                )
+            });
+            if !(0.0..=1.0).contains(&sampling_value) {
+                fatal_error!("Sampling frequency must be between 0.0 and 1.0, got {}", sampling_value);
+            }
+            let sampling_percent: u8 = (sampling_value * 100.0).round() as u8;
+            miri_config.borrow_tracker =
+                Some(BorrowTrackerMethod::TreeBorrows(TreeBorrowsParams {
+                    precise_interior_mut: true,
+                    sampling_freq: Some(sampling_percent),
+                }));            
         } else if arg == "-Zmiri-tree-borrows-no-precise-interior-mut" {
             match &mut miri_config.borrow_tracker {
                 Some(BorrowTrackerMethod::TreeBorrows(params)) => {

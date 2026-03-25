@@ -9,6 +9,8 @@
 //! Documentation about how the Linux kernel chooses a clock source can be found here:
 //! <https://btorpey.github.io/blog/2014/02/18/clock-sources-in-linux/>.
 #![cfg(feature = "tracing")]
+#![allow(dead_code)]
+#![allow(unused)]
 
 /// This alternative `TracingChromeInstant` implementation was made entirely to suit the needs of
 /// [crate::log::tracing_chrome], and shouldn't be used for anything else. It features two functions:
@@ -48,18 +50,18 @@ impl TracingChromeInstant {
     /// that the current thread will be restricted to one CPU for the rest of the execution!
     pub fn setup_for_thread_and_start(incremental_thread_id: usize) -> TracingChromeInstant {
         #[cfg(all(target_os = "linux", any(target_arch = "x86", target_arch = "x86_64")))]
-        if *tsc::IS_TSC_AVAILABLE.get_or_init(tsc::is_tsc_available) {
+        //if *tsc::IS_TSC_AVAILABLE.get_or_init(tsc::is_tsc_available) {
             // We need to lock this thread to a specific CPU, because CPUs' TSC timers might be out
             // of sync.
-            tsc::set_cpu_affinity(incremental_thread_id);
+        //    tsc::set_cpu_affinity(incremental_thread_id);
 
             // Can only use tsc_to_microseconds() and rdtsc() after having set the CPU affinity!
             // We compute tsc_to_microseconds anew for every new thread just in case some CPU core
             // has a different TSC frequency.
-            let tsc_to_microseconds = tsc::tsc_to_microseconds();
-            let start_tsc = tsc::rdtsc();
-            return TracingChromeInstant::Tsc { start_tsc, tsc_to_microseconds };
-        }
+        //    let tsc_to_microseconds = tsc::tsc_to_microseconds();
+        //    let start_tsc = tsc::rdtsc();
+        //    return TracingChromeInstant::Tsc { start_tsc, tsc_to_microseconds };
+        //}
 
         let _ = incremental_thread_id; // otherwise we get a warning when the TSC branch is disabled
         TracingChromeInstant::WallTime { start_instant: std::time::Instant::now() }

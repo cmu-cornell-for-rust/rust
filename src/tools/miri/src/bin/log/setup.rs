@@ -68,7 +68,8 @@ fn init_logger_once(early_dcx: &EarlyDiagCtxt) {
             #[cfg(feature = "tracing")]
             {
                 let (chrome_layer, chrome_guard) =
-                    super::tracing_chrome::ChromeLayerBuilder::new().include_args(true).build();
+                    // super::tracing_chrome::ChromeLayerBuilder::new().include_args(true).build();
+                    super::tracing_chrome::ChromeLayerBuilder::new().build();
                 rustc_driver::init_logger_with_additional_layer(
                     early_dcx,
                     rustc_logger_config(),

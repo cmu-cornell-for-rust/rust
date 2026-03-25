@@ -1428,7 +1428,19 @@ impl<'tcx> Machine<'tcx> for MiriMachine<'tcx> {
         }
         // FIXME: can we somehow preserve the immutability of `ptr`?
         let tag = if let Some(borrow_tracker) = &ecx.machine.borrow_tracker {
-            borrow_tracker.borrow_mut().root_ptr_tag(alloc_id, &ecx.machine)
+            let alloc_info = ecx.get_alloc_info(alloc_id);
+            let is_global = ecx.tcx.try_get_global_alloc(alloc_id).is_some();
+
+            if alloc_info.kind == AllocKind::LiveData && !is_global {
+                let alloc_extra = ecx.get_alloc_extra(alloc_id)?;
+                if let Some(borrow_tracker::AllocState::NoTreeBorrows) = alloc_extra.borrow_tracker.as_ref() {
+                    BorTag::default()
+                } else {
+                    borrow_tracker.borrow_mut().root_ptr_tag(alloc_id, &ecx.machine)
+                }
+            } else {
+                borrow_tracker.borrow_mut().root_ptr_tag(alloc_id, &ecx.machine)
+            }
         } else {
             // Value does not matter, SB is disabled
             BorTag::default()
@@ -1669,7 +1681,7 @@ impl<'tcx> Machine<'tcx> for MiriMachine<'tcx> {
         }
         interp_ok(())
     }
-
+    
     fn protect_in_place_function_argument(
         ecx: &mut InterpCx<'tcx, Self>,
         place: &MPlaceTy<'tcx>,

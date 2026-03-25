@@ -8,6 +8,8 @@
 use std::ops;
 
 use rustc_abi::Size;
+use std::sync::atomic::Ordering;
+use crate::borrow_tracker::tree_borrows::fsm::EMPTY_FSM;
 
 #[derive(Clone, Debug)]
 struct Elem<T> {
@@ -19,6 +21,11 @@ struct Elem<T> {
 #[derive(Clone, Debug)]
 pub struct DedupRangeMap<T> {
     v: Vec<Elem<T>>,
+}
+
+pub trait HasTrie {
+    fn flush_range_traces_to_file(&self, root_tag: u64, range: std::ops::Range<u64>);
+    fn root_count(&self) -> usize;
 }
 
 impl<T> DedupRangeMap<T> {
@@ -223,15 +230,21 @@ impl<T> DedupRangeMap<T> {
     }
 
     /// Remove all adjacent duplicates
-    pub fn merge_adjacent_thorough(&mut self)
+    pub fn merge_adjacent_thorough(&mut self, root_tag: u64)
     where
-        T: PartialEq,
+        T: PartialEq + HasTrie,
     {
         let clean = Vec::with_capacity(self.v.len());
         for elem in std::mem::replace(&mut self.v, clean) {
             if let Some(prev) = self.v.last_mut() {
                 if prev.data == elem.data {
                     assert_eq!(prev.range.end, elem.range.start);
+                    elem.data.flush_range_traces_to_file(root_tag, elem.range.clone());
+
+                    let root_count = elem.data.root_count();
+                    if root_count > 0 {
+                        EMPTY_FSM.fetch_add(root_count as u64, Ordering::Relaxed);
+                    }
                     prev.range.end = elem.range.end;
                     continue;
                 }
