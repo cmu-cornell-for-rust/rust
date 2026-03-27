@@ -66,8 +66,8 @@ impl<'tcx> Tree {
             span,
         );
         match access_kind {
-            AccessKind::Read => trace!("E3(t{:?}, n{})", prov, start.elapsed().as_nanos()),
-            AccessKind::Write => trace!("E4(t{:?}, n{})", prov, start.elapsed().as_nanos()),
+            AccessKind::Read => info!("E3(t{:?}, n{})", prov, start.elapsed().as_nanos()),
+            AccessKind::Write => info!("E4(t{:?}, n{})", prov, start.elapsed().as_nanos()),
         }
         res
     }
@@ -364,7 +364,7 @@ trait EvalContextPrivExt<'tcx>: crate::MiriInterpCxExt<'tcx> {
             this.machine.current_user_relevant_span(),
         )?;
         drop(tree_borrows);
-        trace!("E2(t{}, t{:?}, s{:?}, n{})", new_tag.inner(), parent_prov, ptr_size, start.elapsed().as_nanos());
+        info!("E2(t{}, t{:?}, s{:?}, n{})", new_tag.inner(), parent_prov, ptr_size, start.elapsed().as_nanos());
         interp_ok(Some(new_prov))
     }
 

@@ -928,7 +928,7 @@ impl Tree {
             }
         }
         let root_tag = self.nodes.get(root).unwrap().tag;
-        trace!(
+        info!(
             "E7(t{}, {}, n{})", root_tag.inner(), removed_count, start.elapsed().as_nanos()
         );
     }
@@ -1134,7 +1134,7 @@ impl<'tcx> LocationTree {
                 visitor.traverse_nonchildren(access_source, node_skipper, node_app),
         };
         let source_tag = nodes.get(access_source).unwrap().tag;
-        trace!(
+        info!(
             "E5(t{}, {}, {}, n{})",
             source_tag.inner(),
             visited_nodes.get(),
@@ -1295,7 +1295,7 @@ impl<'tcx> LocationTree {
             },
         )?;
         let root_tag = nodes.get(root).unwrap().tag;
-        trace!(
+        info!(
             "E5(t{}, {}, {}, n{})",
             root_tag.inner(),
             visited_nodes.get(),

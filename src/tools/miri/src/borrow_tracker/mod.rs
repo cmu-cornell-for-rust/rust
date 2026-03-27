@@ -200,7 +200,7 @@ impl GlobalStateInner {
                     None,
                 ));
             }
-            trace!("E1(a{:?}, t{})", id, tag.inner());
+            info!("E1(a{:?}, t{})", id, tag.inner());
             self.root_ptr_tags.try_insert(id, tag).unwrap();
             tag
         })
@@ -287,7 +287,7 @@ impl GlobalStateInner {
                 ))))
             }
         };
-        trace!("E1a(a{:?}, k{:?}, n{:?})", id, kind, start.elapsed().as_nanos());
+        info!("E1a(a{:?}, k{:?}, n{:?})", id, kind, start.elapsed().as_nanos());
         method
     }
 }

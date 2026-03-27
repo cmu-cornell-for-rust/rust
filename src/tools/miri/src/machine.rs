@@ -1817,7 +1817,6 @@ impl<'tcx> Machine<'tcx> for MiriMachine<'tcx> {
         // tracing-tree can automatically annotate scope changes, but it gets very confused by our
         // concurrency and what it prints is just plain wrong. So we print our own information
         // instead. (Cc https://github.com/rust-lang/miri/issues/2266)
-        info!("Leaving {}", ecx.frame().instance());
         interp_ok(())
     }
 
@@ -1839,9 +1838,6 @@ impl<'tcx> Machine<'tcx> for MiriMachine<'tcx> {
         };
         // Needs to be done after dropping frame to show up on the right nesting level.
         // (Cc https://github.com/rust-lang/miri/issues/2266)
-        if !ecx.active_thread_stack().is_empty() {
-            info!("Continuing in {}", ecx.frame().instance());
-        }
         res
     }
 

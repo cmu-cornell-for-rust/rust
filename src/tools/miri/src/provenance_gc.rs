@@ -219,7 +219,7 @@ fn remove_unreachable_allocs<'tcx>(ecx: &mut MiriInterpCx<'tcx>, allocs: FxHashS
 impl<'tcx> EvalContextExt<'tcx> for crate::MiriInterpCx<'tcx> {}
 pub trait EvalContextExt<'tcx>: MiriInterpCxExt<'tcx> {
     fn run_provenance_gc(&mut self) {
-        trace!("E6");
+        info!("E6");
         let this = self.eval_context_mut();
 
         // We collect all tags and AllocId from every part of the interpreter.
