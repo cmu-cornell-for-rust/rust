@@ -130,9 +130,7 @@ where
 
         impl Visit for Visitor {
             fn record_debug(&mut self, field: &Field, value: &dyn std::fmt::Debug) {
-                if field.name() == "message" {
-                    self.message = Some(format!("{value:?}"));
-                }
+                self.message = Some(format!("{:?}:{:?}", value, field.name()));
             }
         }
 
@@ -140,9 +138,8 @@ where
         event.record(&mut visitor);
 
         if let Some(msg) = visitor.message {
-            let trimmed = msg.trim_matches('"').to_string();
             let sender = self.out.lock().unwrap().clone();
-            let _ = sender.send(Message::Event(trimmed));
+            let _ = sender.send(Message::Event(msg));
         }
     }
 }

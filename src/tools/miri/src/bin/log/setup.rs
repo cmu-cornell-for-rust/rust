@@ -47,10 +47,6 @@ fn rustc_logger_config() -> rustc_log::LoggerConfig {
         }
     }
 
-    if env::var_os("MIRI_TRACING").is_some() && matches!(cfg.filter, Err(VarError::NotPresent)) {
-        cfg.filter = Ok("miri=trace".to_string());
-    }
-
     cfg
 }
 

@@ -200,7 +200,7 @@ impl GlobalStateInner {
                     None,
                 ));
             }
-            trace!("E1(a{}, t{})", id, tag.inner());
+            trace!("E1(a{:?}, t{})", id, tag.inner());
             self.root_ptr_tags.try_insert(id, tag).unwrap();
             tag
         })

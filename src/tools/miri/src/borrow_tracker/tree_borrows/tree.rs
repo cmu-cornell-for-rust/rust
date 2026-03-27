@@ -929,7 +929,7 @@ impl Tree {
         }
         let root_tag = self.nodes.get(root).unwrap().tag;
         trace!(
-            "E7(t{}, {}, n{})", root_tag.inner(), removed_count, Instant::now().elapsed().as_nanos()
+            "E7(t{}, {}, n{})", root_tag.inner(), removed_count, start.elapsed().as_nanos()
         );
     }
 }
