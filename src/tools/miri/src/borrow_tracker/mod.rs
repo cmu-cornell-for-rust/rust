@@ -13,6 +13,7 @@ use crate::*;
 use crate::machine::MiriMachine;
 pub mod stacked_borrows;
 pub mod tree_borrows;
+use std::time::Instant;
 
 /// Indicates which kind of access is being performed.
 #[derive(Copy, Clone, Hash, PartialEq, Eq, Debug)]
@@ -199,7 +200,7 @@ impl GlobalStateInner {
                     None,
                 ));
             }
-            trace!("New allocation {:?} has rpot tag {:?}", id, tag);
+            trace!("E1(a{}, t{})", id, tag.inner());
             self.root_ptr_tags.try_insert(id, tag).unwrap();
             tag
         })
@@ -266,8 +267,9 @@ impl GlobalStateInner {
         kind: MemoryKind,
         machine: &MiriMachine<'_>,
     ) -> AllocState {
+        let start = Instant::now();
         let _trace = enter_trace_span!(borrow_tracker::new_allocation, ?id, ?alloc_size, ?kind);
-        match self.borrow_tracker_method {
+        let method = match self.borrow_tracker_method {
             BorrowTrackerMethod::StackedBorrows =>
                 AllocState::StackedBorrows(Box::new(RefCell::new(Stacks::new_allocation(
                     id, alloc_size, self, kind, machine,
@@ -284,7 +286,9 @@ impl GlobalStateInner {
                     id, alloc_size, self, kind, machine,
                 ))))
             }
-        }
+        };
+        trace!("E1a(a{:?}, k{:?}, n{:?})", id, kind, start.elapsed().as_nanos());
+        method
     }
 }
 

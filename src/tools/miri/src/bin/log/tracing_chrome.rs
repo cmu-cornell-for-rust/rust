@@ -20,32 +20,36 @@ use std::{
 };
 use miri::borrow_tracker::tree_borrows::fsm::trace_file::TIMESTAMP;
 
-pub enum ChromeEvent {
-    E1 { alloc: String, tag: u32 },
-    E2 { child: u32, parent: u32 },
-    E3 { tag: u32 },
-    E4 { tag: u32 },
-    E5 { tag: u32, visited: u32, skipped: u32 },
-    E6,
-    E7 { tag: u32, removed: u32 },
-}
+/// Keep for documentation
 
-impl std::fmt::Display for ChromeEvent {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ChromeEvent::E1 { alloc, tag } => write!(f, "E1(a{}, t{})", alloc, tag),
-            ChromeEvent::E2 { child, parent } => write!(f, "E2(t{}, t{})", child, parent),
-            ChromeEvent::E3 { tag } => write!(f, "E3(t{})", tag),
-            ChromeEvent::E4 { tag } => write!(f, "E4(t{})", tag),
-            ChromeEvent::E5 { tag, visited, skipped } => write!(f, "E5(t{}, {}, {})", tag, visited, skipped),
-            ChromeEvent::E6 => write!(f, "E6"),
-            ChromeEvent::E7 { tag, removed } => write!(f, "E7(t{}, {})", tag, removed),
-        }
-    }
-}
+// pub enum ChromeEvent {
+//     E1 { alloc: String, tag: u32 },
+//     E1a { alloc: String, kind: String, timestamp: u128 },
+//     E2 { child: u32, parent: u32, size: u64, timestamp: u128 },
+//     E3 { tag: u32, timestamp: u128 },
+//     E4 { tag: u32, timestamp: u128 },
+//     E5 { tag: u32, visited: u32, skipped: u32, timestamp: u128 },
+//     E6,
+//     E7 { tag: u32, removed: u32, timestamp: u128 },
+// }
+
+// impl std::fmt::Display for ChromeEvent {
+//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+//         match self {
+//             ChromeEvent::E1 { alloc, tag } => write!(f, "E1(a{}, t{})", alloc, tag),
+//             ChromeEvent::E1a { alloc, kind, timestamp } => write!(f, "E1a(a{}, k{}, n{})", alloc, kind, timestamp),
+//             ChromeEvent::E2 { child, parent, size, timestamp } => write!(f, "E2(t{}, t{}, s{}, n{})", child, parent, size, timestamp),
+//             ChromeEvent::E3 { tag, timestamp } => write!(f, "E3(t{}, n{})", tag, timestamp),
+//             ChromeEvent::E4 { tag, timestamp } => write!(f, "E4(t{}, n{})", tag, timestamp),
+//             ChromeEvent::E5 { tag, visited, skipped, timestamp } => write!(f, "E5(t{}, {}, {}, n{})", tag, visited, skipped, timestamp),
+//             ChromeEvent::E6 => write!(f, "E6"),
+//             ChromeEvent::E7 { tag, removed, timestamp } => write!(f, "E7(t{}, {}, n{})", tag, removed, timestamp),
+//         }
+//     }
+// }
 
 pub enum Message {
-    Event(ChromeEvent),
+    Event(String),
     Flush,
     Drop,
 }
@@ -102,7 +106,7 @@ where
             for msg in rx {
                 match msg {
                     Message::Event(ev) => {
-                        write!(writer, "{} ", ev).unwrap();
+                        writeln!(writer, "{}", ev).unwrap();
                     }
                     Message::Flush => writer.flush().unwrap(),
                     Message::Drop => break,
@@ -135,72 +139,11 @@ where
         let mut visitor = Visitor { message: None };
         event.record(&mut visitor);
 
-        let msg = match visitor.message {
-            Some(m) => m.trim_matches('"').to_string(),
-            None => return,
-        };
-
-        fn extract_between_angles(s: &str) -> Vec<String> {
-            let mut res = Vec::new();
-            let mut start = 0;
-            while let Some(l) = s[start..].find('<') {
-                let lpos = start + l + 1;
-                if let Some(r) = s[lpos..].find('>') {
-                    res.push(s[lpos..lpos + r].to_string());
-                    start = lpos + r + 1;
-                } else { break; }
-            }
-            res
+        if let Some(msg) = visitor.message {
+            let trimmed = msg.trim_matches('"').to_string();
+            let sender = self.out.lock().unwrap().clone();
+            let _ = sender.send(Message::Event(trimmed));
         }
-
-        let ev = if msg.starts_with("New allocation ") {
-            let angles = extract_between_angles(&msg);
-            if angles.len() >= 1 {
-                let raw_alloc = msg.strip_prefix("New allocation ")
-                    .unwrap().split(" has rpot tag").next().unwrap();
-                let alloc_part = raw_alloc.strip_prefix("alloc").unwrap_or(raw_alloc);
-                ChromeEvent::E1 { alloc: alloc_part.to_string(), tag: angles[0].parse().unwrap() }
-            } else { return; }
-        } else if msg.starts_with("reborrow: reference ") {
-            let angles = extract_between_angles(&msg);
-            if angles.len() >= 2 {
-                ChromeEvent::E2 { child: angles[0].parse().unwrap(), parent: angles[1].parse().unwrap() }
-            } else { return; }
-        } else if msg.contains(" access with tag <") {
-            let angles = extract_between_angles(&msg);
-            if angles.len() >= 1 {
-                if msg.starts_with("read") { ChromeEvent::E3 { tag: angles[0].parse().unwrap() } }
-                else { ChromeEvent::E4 { tag: angles[0].parse().unwrap() } }
-            } else { return; }
-        } else if msg.contains(" access ") && msg.contains(" visited ") && msg.contains(" skipped ") {
-            let angles = extract_between_angles(&msg);
-            if angles.len() >= 1 {
-                let mut visited = 0;
-                let mut skipped = 0;
-                let mut it = msg.split_whitespace();
-                while let Some(word) = it.next() {
-                    if word == "visited" {
-                        visited = it.next().unwrap_or("0").parse().unwrap();
-                    } else if word == "skipped" {
-                        skipped = it.next().unwrap_or("0").parse().unwrap();
-                        break;
-                    }
-                }
-                ChromeEvent::E5 { tag: angles[0].parse().unwrap(), visited, skipped }
-            } else { return; }
-        } else if msg == "Provenance GC invoked" { ChromeEvent::E6 }
-        else if msg.starts_with("Removed ") && msg.contains(" from root tag <") {
-            let angles = extract_between_angles(&msg);
-            if angles.len() >= 1 {
-                let mut it = msg.split_whitespace();
-                let _ = it.next();
-                let removed = it.next().unwrap_or("0").parse().unwrap();
-                ChromeEvent::E7 { tag: angles[0].parse().unwrap(), removed }
-            } else { return; }
-        } else { return; };
-
-        let sender = self.out.lock().unwrap().clone();
-        let _ = sender.send(Message::Event(ev));
     }
 }
 

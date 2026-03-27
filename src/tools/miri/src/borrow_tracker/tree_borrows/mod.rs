@@ -9,6 +9,7 @@ use crate::borrow_tracker::{AccessKind, GlobalState, GlobalStateInner, Protector
 use crate::concurrency::data_race::NaReadType;
 use crate::*;
 use crate::borrow_tracker::AllocState as GlobalAllocState;
+use std::time::Instant;
 
 pub mod diagnostics;
 pub mod fsm;
@@ -51,16 +52,11 @@ impl<'tcx> Tree {
         range: AllocRange,
         machine: &MiriMachine<'tcx>,
     ) -> InterpResult<'tcx> {
-        trace!(
-            "{} with tag {:?}: {:?}, size {}",
-            access_kind,
-            prov,
-            interpret::Pointer::new(alloc_id, range.start),
-            range.size.bytes(),
-        );
+        let start = Instant::now();
+
         let global = machine.borrow_tracker.as_ref().unwrap();
         let span = machine.current_user_relevant_span();
-        self.perform_access(
+        let res = self.perform_access(
             prov,
             range,
             access_kind,
@@ -68,7 +64,12 @@ impl<'tcx> Tree {
             global,
             alloc_id,
             span,
-        )
+        );
+        match access_kind {
+            AccessKind::Read => trace!("E3(t{:?}, n{})", prov, start.elapsed().as_nanos()),
+            AccessKind::Write => trace!("E4(t{:?}, n{})", prov, start.elapsed().as_nanos()),
+        }
+        res
     }
 
     /// Check that this pointer has permission to deallocate this range.
@@ -193,7 +194,8 @@ trait EvalContextPrivExt<'tcx>: crate::MiriInterpCxExt<'tcx> {
         ptr_size: Size,
         new_perm: NewPermission,
         new_tag: BorTag,
-    ) -> InterpResult<'tcx, Option<Provenance>> {
+    ) -> InterpResult<'tcx, Option<Provenance>> {   
+        let start = Instant::now();
         let this = self.eval_context_mut();
         // Ensure we bail out if the pointer goes out-of-bounds (see miri#1050).
         this.check_ptr_access(place.ptr(), ptr_size, CheckInAllocMsg::Dereferenceable)?;
@@ -222,7 +224,6 @@ trait EvalContextPrivExt<'tcx>: crate::MiriInterpCxExt<'tcx> {
             interp_ok(())
         };
 
-        trace!("Reborrow of size {:?}", ptr_size);
         // Unlike SB, we *do* a proper retag for size 0 if can identify the allocation.
         // After all, the pointer may be lazily initialized outside this initial range.
         let Ok((alloc_id, base_offset, parent_prov)) = this.ptr_try_get_alloc_id(place.ptr(), 0)
@@ -231,7 +232,6 @@ trait EvalContextPrivExt<'tcx>: crate::MiriInterpCxExt<'tcx> {
             // This pointer doesn't come with an AllocId, so there's no
             // memory to do retagging in.
             let new_prov = place.ptr().provenance;
-            trace!("reborrow of size 0: reusing {:?} (pointee {})", place.ptr(), place.layout.ty,);
             log_creation(this, None)?;
             // Keep original provenance.
             return interp_ok(new_prov);
@@ -239,15 +239,6 @@ trait EvalContextPrivExt<'tcx>: crate::MiriInterpCxExt<'tcx> {
         let new_prov = Provenance::Concrete { alloc_id, tag: new_tag };
 
         log_creation(this, Some((alloc_id, base_offset, parent_prov)))?;
-
-        trace!(
-            "reborrow: reference {:?} derived from {:?} (pointee {}): {:?}, size {}",
-            new_tag,
-            parent_prov,
-            place.layout.ty,
-            interpret::Pointer::new(alloc_id, base_offset),
-            ptr_size.bytes()
-        );
 
         if let Some(protect) = new_perm.protector {
             // We register the protection in two different places.
@@ -373,7 +364,7 @@ trait EvalContextPrivExt<'tcx>: crate::MiriInterpCxExt<'tcx> {
             this.machine.current_user_relevant_span(),
         )?;
         drop(tree_borrows);
-
+        trace!("E2(t{}, t{:?}, s{:?}, n{})", new_tag.inner(), parent_prov, ptr_size, start.elapsed().as_nanos());
         interp_ok(Some(new_prov))
     }
 

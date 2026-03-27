@@ -15,6 +15,7 @@ use std::{cmp, fmt, mem};
 use std::cell::Cell;
 use std::collections::HashMap;
 use std::sync::atomic::Ordering;
+use std::time::Instant;
 
 use rustc_abi::Size;
 use rustc_data_structures::fx::FxHashSet;
@@ -875,6 +876,7 @@ impl Tree {
         // since we need to 1) do a post-traversal and 2) remove nodes from the tree.
         // Since we do a post-traversal (by deleting nodes only after handling all children),
         // we also need to be a bit smarter than "pop node, push all children."
+        let start = Instant::now();
         let mut stack = vec![(root, 0)];
         let mut removed_count = 0;
         while let Some((tag, nth_child)) = stack.last_mut() {
@@ -927,9 +929,7 @@ impl Tree {
         }
         let root_tag = self.nodes.get(root).unwrap().tag;
         trace!(
-            "Removed {} useless children from root tag {:?}",
-            removed_count,
-            root_tag
+            "E7(t{}, {}, n{})", root_tag.inner(), removed_count, Instant::now().elapsed().as_nanos()
         );
     }
 }
@@ -1062,6 +1062,7 @@ impl<'tcx> LocationTree {
         //
         // `loc_range` is only for diagnostics (it is the range of
         // the `RangeMap` on which we are currently working).
+        let start = Instant::now();
         let visited_nodes = Cell::new(0);
         let skipped_nodes = Cell::new(0);
         
@@ -1134,10 +1135,11 @@ impl<'tcx> LocationTree {
         };
         let source_tag = nodes.get(access_source).unwrap().tag;
         trace!(
-            "Normal access from source tag {:?}: visited {} nodes, skipped {} nodes",
-            source_tag,
+            "E5(t{}, {}, {}, n{})",
+            source_tag.inner(),
             visited_nodes.get(),
-            skipped_nodes.get()
+            skipped_nodes.get(),
+            start.elapsed().as_nanos()
         );
         result.into()
     }
@@ -1160,6 +1162,7 @@ impl<'tcx> LocationTree {
         diagnostics: &DiagnosticInfo,
         is_wildcard_tree: bool,
     ) -> InterpResult<'tcx> {
+        let start = Instant::now();
         let get_relatedness = |idx: UniIndex, node: &Node, loc: &LocationTree| {
             // If the tag is larger than `max_local_tag` then the access can only be foreign.
             let only_foreign = max_local_tag.is_some_and(|max_local_tag| max_local_tag < node.tag);
@@ -1293,10 +1296,11 @@ impl<'tcx> LocationTree {
         )?;
         let root_tag = nodes.get(root).unwrap().tag;
         trace!(
-            "Wildcard access from root tag {:?}: visited {} nodes, skipped {} nodes",
-            root_tag,
+            "E5(t{}, {}, {}, n{})",
+            root_tag.inner(),
             visited_nodes.get(),
-            skipped_nodes.get()
+            skipped_nodes.get(),
+            start.elapsed().as_nanos()
         );
         // If there is no exposed node in this tree that allows this access, then the access *must*
         // be foreign to the entire subtree. Foreign accesses are only possible on wildcard subtrees
