@@ -66,8 +66,14 @@ impl<'tcx> Tree {
             span,
         );
         match access_kind {
-            AccessKind::Read => info!("E3(t{:?}, n{})", prov, start.elapsed().as_nanos()),
-            AccessKind::Write => info!("E4(t{:?}, n{})", prov, start.elapsed().as_nanos()),
+            AccessKind::Read => match prov {
+                ProvenanceExtra::Concrete(tag) => info!("E3(t{}, n{})", tag.inner(), start.elapsed().as_nanos()),
+                _ => info!("E3(tw, n{})", start.elapsed().as_nanos()),
+            },
+            AccessKind::Write => match prov {
+                ProvenanceExtra::Concrete(tag) => info!("E4(t{}, n{})", tag.inner(), start.elapsed().as_nanos()),
+                _ => info!("E4(tw, n{})", start.elapsed().as_nanos()),
+            },
         }
         res
     }
@@ -364,7 +370,14 @@ trait EvalContextPrivExt<'tcx>: crate::MiriInterpCxExt<'tcx> {
             this.machine.current_user_relevant_span(),
         )?;
         drop(tree_borrows);
-        info!("E2(t{}, t{:?}, s{:?}, n{})", new_tag.inner(), parent_prov, ptr_size, start.elapsed().as_nanos());
+        match parent_prov {
+            ProvenanceExtra::Concrete(tag ) => {
+                info!("E2(t{}, t{}, s{}, n{})", new_tag.inner(), tag.inner(), ptr_size.bytes(), start.elapsed().as_nanos())
+            }
+            _ => { info!("E2(t{}, tw, s{}, n{})", new_tag.inner(), ptr_size.bytes(), start.elapsed().as_nanos()) 
+            }
+        }   
+        
         interp_ok(Some(new_prov))
     }
 

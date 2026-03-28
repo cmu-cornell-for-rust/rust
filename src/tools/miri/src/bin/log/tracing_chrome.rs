@@ -130,7 +130,7 @@ where
 
         impl Visit for Visitor {
             fn record_debug(&mut self, field: &Field, value: &dyn std::fmt::Debug) {
-                self.message = Some(format!("{:?}:{:?}", value, field.name()));
+                self.message = Some(format!("{value:?}"));
             }
         }
 

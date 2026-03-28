@@ -1,5 +1,6 @@
 use rustc_data_structures::either::Either;
 use rustc_data_structures::fx::FxHashSet;
+use std::time::Instant;
 
 use crate::*;
 
@@ -219,7 +220,8 @@ fn remove_unreachable_allocs<'tcx>(ecx: &mut MiriInterpCx<'tcx>, allocs: FxHashS
 impl<'tcx> EvalContextExt<'tcx> for crate::MiriInterpCx<'tcx> {}
 pub trait EvalContextExt<'tcx>: MiriInterpCxExt<'tcx> {
     fn run_provenance_gc(&mut self) {
-        info!("E6");
+        let start = Instant::now();
+        info!("E6 (start)");
         let this = self.eval_context_mut();
 
         // We collect all tags and AllocId from every part of the interpreter.
@@ -237,5 +239,6 @@ pub trait EvalContextExt<'tcx>: MiriInterpCxExt<'tcx> {
         // Based on this, clean up the interpreter state.
         remove_unreachable_tags(this, tags);
         remove_unreachable_allocs(this, alloc_ids);
+        info!("E6 (n{})", start.elapsed().as_nanos());
     }
 }
