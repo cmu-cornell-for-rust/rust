@@ -26,7 +26,6 @@ use crate::*;
 ///
 /// A `None` namespace indicates we are looking for a module.
 fn try_resolve_did(tcx: TyCtxt<'_>, path: &[&str], namespace: Option<Namespace>) -> Option<DefId> {
-    let _trace = enter_trace_span!("try_resolve_did", ?path);
 
     /// Yield all children of the given item, that have the given name.
     fn find_children<'tcx: 'a, 'a>(

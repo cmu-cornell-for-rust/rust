@@ -1228,7 +1228,6 @@ impl<'tcx> Machine<'tcx> for MiriMachine<'tcx> {
     ) -> InterpResult<'tcx, Option<(&'tcx mir::Body<'tcx>, ty::Instance<'tcx>)>> {
         // For foreign items, try to see if we can emulate them.
         if ecx.tcx.is_foreign_item(instance.def_id()) {
-            let _trace = enter_trace_span!("emulate_foreign_item");
             // An external function call that does not have a MIR body. We either find MIR elsewhere
             // or emulate its effect.
             // This will be Ok(None) if we're emulating the intrinsic entirely within Miri (no need
@@ -1248,7 +1247,6 @@ impl<'tcx> Machine<'tcx> for MiriMachine<'tcx> {
         }
 
         // Otherwise, load the MIR.
-        let _trace = enter_trace_span!("load_mir");
         interp_ok(Some((ecx.load_mir(instance.def, None)?, instance)))
     }
 
@@ -1538,7 +1536,6 @@ impl<'tcx> Machine<'tcx> for MiriMachine<'tcx> {
             GlobalDataRaceHandler::Genmc(genmc_ctx) =>
                 genmc_ctx.memory_load(machine, ptr.addr(), range.size)?,
             GlobalDataRaceHandler::Vclocks(_data_race) => {
-                let _trace = enter_trace_span!(data_race::before_memory_read);
                 let AllocDataRaceHandler::Vclocks(data_race, _weak_memory) = &alloc_extra.data_race
                 else {
                     unreachable!();
@@ -1578,7 +1575,6 @@ impl<'tcx> Machine<'tcx> for MiriMachine<'tcx> {
             GlobalDataRaceHandler::Genmc(genmc_ctx) =>
                 genmc_ctx.memory_store(machine, ptr.addr(), range.size)?,
             GlobalDataRaceHandler::Vclocks(_global_state) => {
-                let _trace = enter_trace_span!(data_race::before_memory_write);
                 let AllocDataRaceHandler::Vclocks(data_race, weak_memory) =
                     &mut alloc_extra.data_race
                 else {
@@ -1630,7 +1626,6 @@ impl<'tcx> Machine<'tcx> for MiriMachine<'tcx> {
             GlobalDataRaceHandler::Genmc(genmc_ctx) =>
                 genmc_ctx.handle_dealloc(machine, alloc_id, ptr.addr(), kind)?,
             GlobalDataRaceHandler::Vclocks(_global_state) => {
-                let _trace = enter_trace_span!(data_race::before_memory_deallocation);
                 let data_race = alloc_extra.data_race.as_vclocks_mut().unwrap();
                 data_race.write_non_atomic(
                     alloc_id,
@@ -1847,7 +1842,6 @@ impl<'tcx> Machine<'tcx> for MiriMachine<'tcx> {
         local: mir::Local,
     ) -> InterpResult<'tcx> {
         if let Some(data_race) = &frame.extra.data_race {
-            let _trace = enter_trace_span!(data_race::after_local_read);
             data_race.local_read(local, &ecx.machine);
         }
         interp_ok(())
@@ -1859,7 +1853,6 @@ impl<'tcx> Machine<'tcx> for MiriMachine<'tcx> {
         storage_live: bool,
     ) -> InterpResult<'tcx> {
         if let Some(data_race) = &ecx.frame().extra.data_race {
-            let _trace = enter_trace_span!(data_race::after_local_write);
             data_race.local_write(local, storage_live, &ecx.machine);
         }
         interp_ok(())
@@ -1882,7 +1875,6 @@ impl<'tcx> Machine<'tcx> for MiriMachine<'tcx> {
         if let Some(data_race) =
             &machine.threads.active_thread_stack().last().unwrap().extra.data_race
         {
-            let _trace = enter_trace_span!(data_race::after_local_moved_to_memory);
             data_race.local_moved_to_memory(
                 local,
                 alloc_info.data_race.as_vclocks_mut().unwrap(),

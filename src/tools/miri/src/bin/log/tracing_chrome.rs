@@ -163,9 +163,11 @@ impl Drop for FlushGuard {
 }
 
 fn create_default_writer() -> Box<dyn Write + Send> {
-    let ts = *TIMESTAMP;
+    let filename = std::env::var("MIRI_TEST_NAME")
+        .ok()
+        .unwrap_or_else(|| (*TIMESTAMP).to_string());
     Box::new(
-        std::fs::File::create(format!("./events-{}", ts))
+        std::fs::File::create(format!("./events-{}", filename))
             .expect("Failed to create trace file."),
     )
 }
