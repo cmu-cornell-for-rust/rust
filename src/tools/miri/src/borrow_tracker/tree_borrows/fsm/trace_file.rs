@@ -30,10 +30,13 @@ pub struct TraceFile {
 
 pub static TRACE_FILE: Lazy<Mutex<TraceFile>> = Lazy::new(|| {
     let (tx, rx): (Sender<TraceItem>, Receiver<TraceItem>) = mpsc::channel();
+    let filename = std::env::var("MIRI_TEST_NAME")
+        .ok()
+        .unwrap_or_else(|| (*TIMESTAMP).to_string());
     let file = OpenOptions::new()
         .create(true)
         .append(true)
-        .open(format!("traces-{}", *TIMESTAMP))
+        .open(format!("traces-{}", filename))
         .expect("failed to open trace file");
 
     let mut writer = BufWriter::new(file);
