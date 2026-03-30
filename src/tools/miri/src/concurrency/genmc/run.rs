@@ -63,7 +63,6 @@ fn run_genmc_mode_impl<'tcx>(
 
     // `rep` is used to report the progress, Miri will panic on wrap-around.
     for rep in 0u64.. {
-        tracing::info!("Miri-GenMC loop {}", rep + 1);
 
         // Prepare for the next execution and inform GenMC about it.
         genmc_ctx.prepare_next_execution();

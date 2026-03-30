@@ -36,8 +36,8 @@ use miri::borrow_tracker::tree_borrows::fsm::trace_file::TIMESTAMP;
 // impl std::fmt::Display for ChromeEvent {
 //     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 //         match self {
-//             ChromeEvent::E1 { alloc, tag } => write!(f, "E1(a{}, t{})", alloc, tag),
-//             ChromeEvent::E1a { alloc, kind, timestamp } => write!(f, "E1a(a{}, k{}, n{})", alloc, kind, timestamp),
+//             ChromeEvent::E1 { alloc, tag } => write!(f, "E1(alloc{}, t{})", alloc, tag),
+//             ChromeEvent::E1a { alloc, kind, timestamp } => write!(f, "E1a(alloc{}, k{}, n{})", alloc, kind, timestamp),
 //             ChromeEvent::E2 { child, parent, size, timestamp } => write!(f, "E2(t{}, t{}, s{}, n{})", child, parent, size, timestamp),
 //             ChromeEvent::E3 { tag, timestamp } => write!(f, "E3(t{}, n{})", tag, timestamp),
 //             ChromeEvent::E4 { tag, timestamp } => write!(f, "E4(t{}, n{})", tag, timestamp),

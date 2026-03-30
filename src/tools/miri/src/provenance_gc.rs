@@ -221,7 +221,7 @@ impl<'tcx> EvalContextExt<'tcx> for crate::MiriInterpCx<'tcx> {}
 pub trait EvalContextExt<'tcx>: MiriInterpCxExt<'tcx> {
     fn run_provenance_gc(&mut self) {
         let start = Instant::now();
-        info!("E6 (start)");
+        info!("E6(start)");
         let this = self.eval_context_mut();
 
         // We collect all tags and AllocId from every part of the interpreter.
@@ -239,6 +239,6 @@ pub trait EvalContextExt<'tcx>: MiriInterpCxExt<'tcx> {
         // Based on this, clean up the interpreter state.
         remove_unreachable_tags(this, tags);
         remove_unreachable_allocs(this, alloc_ids);
-        info!("E6 (n{})", start.elapsed().as_nanos());
+        info!("E6(n{})", start.elapsed().as_nanos());
     }
 }
