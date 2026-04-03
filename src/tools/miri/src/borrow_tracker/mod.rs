@@ -227,6 +227,22 @@ impl GlobalStateInner {
     pub fn alloc_ids(&self) -> impl Iterator<Item = &AllocId> {
         self.root_ptr_tags.keys()
     }
+
+    pub fn should_do_transition(&self) -> bool {
+        match self.borrow_tracker_method {
+            BorrowTrackerMethod::TreeBorrows(params) => {
+                let skip_probability =
+                    params.selective_transition.map(|v| v as f64 / 100.0).unwrap_or(0.0);
+
+                if skip_probability > 0.0 {
+                    let mut rng = rand::rng();
+                    if rng.random_bool(skip_probability) { return false; }
+                }
+                true
+            }
+            _ => true,
+        }
+    }
 }
 
 /// Which borrow tracking method to use
@@ -243,6 +259,7 @@ pub enum BorrowTrackerMethod {
 pub struct TreeBorrowsParams {
     pub precise_interior_mut: bool,
     pub sampling_freq: Option<u8>,
+    pub selective_transition: Option<u8>
 }
 
 impl BorrowTrackerMethod {
