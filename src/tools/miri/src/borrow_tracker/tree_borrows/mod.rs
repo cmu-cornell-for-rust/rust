@@ -1,7 +1,9 @@
 use rustc_abi::Size;
+use rustc_data_structures::fx::{FxHashMap, FxHashSet};
 use rustc_middle::mir::{Mutability, RetagKind};
 use rustc_middle::ty::layout::HasTypingEnv;
 use rustc_middle::ty::{self, Ty};
+use rustc_span::Span;
 
 use self::foreign_access_skipping::IdempotentForeignAccess;
 use self::tree::LocationState;
@@ -23,25 +25,44 @@ mod exhaustive;
 use self::perms::Permission;
 pub use self::tree::Tree;
 
-pub type AllocState = Tree;
+/// Per-allocation state for Tree Borrows, supporting lazy initialization.
+#[derive(Debug, Clone)]
+pub enum AllocState {
+    Uninitialized {
+        id: AllocId,
+        size: Size,
+        span: Span,
+    },
+    Initialized(Tree),
+}
 
-impl<'tcx> Tree {
-    /// Create a new allocation, i.e. a new tree
+impl AllocState {
+    /// Ensure the tree is initialized, creating it if necessary.
+    pub fn ensure_initialized<'tcx>(
+        &mut self,
+        state: &mut GlobalStateInner,
+        machine: &MiriMachine<'tcx>,
+    ) {
+        if let AllocState::Uninitialized { id, size, span } = self {
+            let tag = state.root_ptr_tag(*id, machine);
+            *self = AllocState::Initialized(Tree::new(tag, *size, *span));
+        }
+    }
+
+    /// Create a new allocation in a lazy (uninitialized) state.
     pub fn new_allocation(
         id: AllocId,
         size: Size,
-        state: &mut GlobalStateInner,
+        _state: &mut GlobalStateInner,
         _kind: MemoryKind,
-        machine: &MiriMachine<'tcx>,
+        machine: &MiriMachine<'_>,
     ) -> Self {
-        let tag = state.root_ptr_tag(id, machine); // Fresh tag for the root
         let span = machine.current_user_relevant_span();
-        Tree::new(tag, size, span)
+        AllocState::Uninitialized { id, size, span }
     }
 
-    /// Check that an access on the entire range is permitted, and update
-    /// the tree.
-    pub fn before_memory_access(
+    /// Check that an access on the entire range is permitted, and update the tree.
+    pub fn before_memory_access<'tcx>(
         &mut self,
         access_kind: AccessKind,
         alloc_id: AllocId,
@@ -49,28 +70,37 @@ impl<'tcx> Tree {
         range: AllocRange,
         machine: &MiriMachine<'tcx>,
     ) -> InterpResult<'tcx> {
-        trace!(
-            "{} with tag {:?}: {:?}, size {}",
-            access_kind,
-            prov,
-            interpret::Pointer::new(alloc_id, range.start),
-            range.size.bytes(),
-        );
         let global = machine.borrow_tracker.as_ref().unwrap();
-        let span = machine.current_user_relevant_span();
-        self.perform_access(
-            prov,
-            range,
-            access_kind,
-            diagnostics::AccessCause::Explicit(access_kind),
-            global,
-            alloc_id,
-            span,
-        )
+        self.ensure_initialized(&mut global.borrow_mut(), machine);
+        
+        match self {
+            AllocState::Initialized(tree) => {
+                trace!(
+                    "{} with tag {:?}: {:?}, size {}",
+                    access_kind,
+                    prov,
+                    interpret::Pointer::new(alloc_id, range.start),
+                    range.size.bytes(),
+                );
+                let span = machine.current_user_relevant_span();
+                tree.perform_access(
+                    prov,
+                    range,
+                    access_kind,
+                    diagnostics::AccessCause::Explicit(access_kind),
+                    global,
+                    alloc_id,
+                    span,
+                )
+            }
+            AllocState::Uninitialized { .. } => {
+                panic!("tree should have been initialized")
+            }
+        }
     }
 
     /// Check that this pointer has permission to deallocate this range.
-    pub fn before_memory_deallocation(
+    pub fn before_memory_deallocation<'tcx>(
         &mut self,
         alloc_id: AllocId,
         prov: ProvenanceExtra,
@@ -78,29 +108,163 @@ impl<'tcx> Tree {
         machine: &MiriMachine<'tcx>,
     ) -> InterpResult<'tcx> {
         let global = machine.borrow_tracker.as_ref().unwrap();
-        let span = machine.current_user_relevant_span();
-        self.dealloc(prov, alloc_range(Size::ZERO, size), global, alloc_id, span)
+        self.ensure_initialized(&mut global.borrow_mut(), machine);
+        
+        match self {
+            AllocState::Initialized(tree) => {
+                let span = machine.current_user_relevant_span();
+                tree.dealloc(prov, alloc_range(Size::ZERO, size), global, alloc_id, span)
+            }
+            AllocState::Uninitialized { .. } => {
+                panic!("tree should have been initialized")
+            }
+        }
     }
 
     /// A tag just lost its protector.
-    ///
-    /// This emits a special kind of access that is only applied
-    /// to accessed locations, as a protection against other
-    /// tags not having been made aware of the existence of this
-    /// protector.
-    pub fn release_protector(
+    pub fn release_protector<'tcx>(
         &mut self,
         machine: &MiriMachine<'tcx>,
         global: &GlobalState,
         tag: BorTag,
-        alloc_id: AllocId, // diagnostics
+        alloc_id: AllocId,
     ) -> InterpResult<'tcx> {
-        let span = machine.current_user_relevant_span();
-        self.perform_protector_end_access(tag, global, alloc_id, span)?;
+        self.ensure_initialized(&mut global.borrow_mut(), machine);
+        
+        match self {
+            AllocState::Initialized(tree) => {
+                let span = machine.current_user_relevant_span();
+                tree.perform_protector_end_access(tag, global, alloc_id, span)?;
+                tree.update_exposure_for_protector_release(tag);
+                interp_ok(())
+            }
+            AllocState::Uninitialized { .. } => {
+                panic!("tree should have been initialized")
+            }
+        }
+    }
 
-        self.update_exposure_for_protector_release(tag);
+    /// Wrapper for Tree::remove_unreachable_tags
+    pub fn remove_unreachable_tags(&mut self, tags: &FxHashSet<BorTag>) {
+        match self {
+            AllocState::Initialized(tree) => tree.remove_unreachable_tags(tags),
+            AllocState::Uninitialized { .. } => ()
+        }
+    }
 
-        interp_ok(())
+    /// Wrapper for Tree::perform_access
+    pub fn perform_access<'tcx>(
+        &mut self,
+        prov: ProvenanceExtra,
+        range: AllocRange,
+        access_kind: AccessKind,
+        cause: diagnostics::AccessCause,
+        global: &GlobalState,
+        alloc_id: AllocId,
+        span: Span,
+        machine: &MiriMachine<'tcx>,
+    ) -> InterpResult<'tcx> {
+        self.ensure_initialized(&mut global.borrow_mut(), machine);
+        match self {
+            AllocState::Initialized(tree) => {
+                tree.perform_access(prov, range, access_kind, cause, global, alloc_id, span)
+            }
+            AllocState::Uninitialized { .. } => {
+                panic!("tree should have been initialized")
+            }
+        }
+    }
+
+    /// Wrapper for Tree::new_child
+    fn new_child<'tcx>(
+        &mut self,
+        base_offset: Size,
+        parent_prov: ProvenanceExtra,
+        new_tag: BorTag,
+        inside_perms: DedupRangeMap<LocationState>,
+        outside_perm: Permission,
+        protected: bool,
+        span: Span,
+        machine: &MiriMachine<'tcx>,
+        global: &GlobalState,
+    ) -> InterpResult<'tcx> {
+        self.ensure_initialized(&mut global.borrow_mut(), machine);
+        match self {
+            AllocState::Initialized(tree) => {
+                tree.new_child(base_offset, parent_prov, new_tag, inside_perms, outside_perm, protected, span)
+            }
+            AllocState::Uninitialized { .. } => {
+                panic!("tree should have been initialized")
+            }
+        }
+    }
+
+    /// Wrapper for Tree::expose_tag
+    pub fn expose_tag<'tcx>(
+        &mut self,
+        tag: BorTag,
+        protected: bool,
+        machine: &MiriMachine<'tcx>,
+        global: &GlobalState,
+    ) {
+        self.ensure_initialized(&mut global.borrow_mut(), machine);
+        match self {
+            AllocState::Initialized(tree) => {
+                tree.expose_tag(tag, protected);
+            }
+            AllocState::Uninitialized { .. } => {
+                panic!("tree should have been initialized")
+            }
+        }
+    }
+
+    /// Wrapper for Tree::print_tree
+    pub fn print_tree<'tcx>(
+        &mut self,
+        protected_tags: &FxHashMap<BorTag, ProtectorKind>,
+        show_unnamed: bool,
+        machine: &MiriMachine<'tcx>,
+        global: &GlobalState,
+    ) -> InterpResult<'tcx> {
+        self.ensure_initialized(&mut global.borrow_mut(), machine);
+        match self {
+            AllocState::Initialized(tree) => {
+                tree.print_tree(protected_tags, show_unnamed)
+            }
+            AllocState::Uninitialized { .. } => {
+                panic!("tree should have been initialized")
+            }
+        }
+    }
+
+    /// Wrapper for Tree::give_pointer_debug_name
+    pub fn give_pointer_debug_name<'tcx>(
+        &mut self,
+        tag: BorTag,
+        nth_parent: u8,
+        name: &str,
+        machine: &MiriMachine<'tcx>,
+        global: &GlobalState,
+    ) -> InterpResult<'tcx> {
+        self.ensure_initialized(&mut global.borrow_mut(), machine);
+        match self {
+            AllocState::Initialized(tree) => {
+                tree.give_pointer_debug_name(tag, nth_parent, name)
+            }
+            AllocState::Uninitialized { .. } => {
+                panic!("tree should have been initialized")
+            }
+        }
+    }
+}
+
+/// Wrapper for Tree::visit_provenance
+impl VisitProvenance for AllocState {
+    fn visit_provenance(&self, visit: &mut VisitWith<'_>) {
+        match self {
+            AllocState::Initialized(tree) => tree.visit_provenance(visit),
+            AllocState::Uninitialized { .. } => ()
+        }
     }
 }
 
@@ -133,8 +297,7 @@ impl<'tcx> NewPermission {
         retag_kind: RetagKind,
         cx: &crate::MiriInterpCx<'tcx>,
     ) -> Option<Self> {
-        let ty_is_unpin = pointee.is_unpin(*cx.tcx, cx.typing_env())
-            && pointee.is_unsafe_unpin(*cx.tcx, cx.typing_env());
+        let ty_is_unpin = pointee.is_unpin(*cx.tcx, cx.typing_env());
         let ty_is_freeze = pointee.is_freeze(*cx.tcx, cx.typing_env());
         let is_protected = retag_kind == RetagKind::FnEntry;
 
@@ -326,6 +489,7 @@ trait EvalContextPrivExt<'tcx>: crate::MiriInterpCxExt<'tcx> {
 
         let alloc_extra = this.get_alloc_extra(alloc_id)?;
         let mut tree_borrows = alloc_extra.borrow_tracker_tb().borrow_mut();
+        let global = this.machine.borrow_tracker.as_ref().unwrap();
 
         for (perm_range, perm) in inside_perms.iter_all() {
             if perm.accessed() {
@@ -341,9 +505,10 @@ trait EvalContextPrivExt<'tcx>: crate::MiriInterpCxExt<'tcx> {
                     range_in_alloc,
                     AccessKind::Read,
                     diagnostics::AccessCause::Reborrow,
-                    this.machine.borrow_tracker.as_ref().unwrap(),
+                    global,
                     alloc_id,
                     this.machine.current_user_relevant_span(),
+                    &this.machine,
                 )?;
 
                 // Also inform the data race model (but only if any bytes are actually affected).
@@ -369,6 +534,8 @@ trait EvalContextPrivExt<'tcx>: crate::MiriInterpCxExt<'tcx> {
             new_perm.outside_perm,
             protected,
             this.machine.current_user_relevant_span(),
+            &this.machine,
+            global,
         )?;
         drop(tree_borrows);
 
@@ -573,15 +740,14 @@ pub trait EvalContextExt<'tcx>: crate::MiriInterpCxExt<'tcx> {
                 trace!("Tree Borrows tag {tag:?} exposed in {alloc_id:?}");
 
                 let global = this.machine.borrow_tracker.as_ref().unwrap();
-                let protected_tags = &global.borrow().protected_tags;
-                let protected = protected_tags.contains_key(&tag);
-                alloc_extra.borrow_tracker_tb().borrow_mut().expose_tag(tag, protected);
+                let protected = {
+                    let global_borrow = global.borrow();
+                    global_borrow.protected_tags.contains_key(&tag)
+                };
+                let mut tree_borrows = alloc_extra.borrow_tracker_tb().borrow_mut();
+                tree_borrows.expose_tag(tag, protected, &this.machine, global);
             }
-            AllocKind::Function
-            | AllocKind::VTable
-            | AllocKind::TypeId
-            | AllocKind::Dead
-            | AllocKind::VaList => {
+            AllocKind::Function | AllocKind::VTable | AllocKind::TypeId | AllocKind::Dead => {
                 // No tree borrows on these allocations.
             }
         }
@@ -592,9 +758,10 @@ pub trait EvalContextExt<'tcx>: crate::MiriInterpCxExt<'tcx> {
     fn print_tree(&mut self, alloc_id: AllocId, show_unnamed: bool) -> InterpResult<'tcx> {
         let this = self.eval_context_mut();
         let alloc_extra = this.get_alloc_extra(alloc_id)?;
-        let tree_borrows = alloc_extra.borrow_tracker_tb().borrow();
-        let borrow_tracker = &this.machine.borrow_tracker.as_ref().unwrap().borrow();
-        tree_borrows.print_tree(&borrow_tracker.protected_tags, show_unnamed)
+        let mut tree_borrows = alloc_extra.borrow_tracker_tb().borrow_mut();
+        let global = this.machine.borrow_tracker.as_ref().unwrap();
+        let protected_tags = global.borrow().protected_tags.clone();
+        tree_borrows.print_tree(&protected_tags, show_unnamed, &this.machine, global)
     }
 
     /// Give a name to the pointer, usually the name it has in the source code (for debugging).
@@ -620,6 +787,7 @@ pub trait EvalContextExt<'tcx>: crate::MiriInterpCxExt<'tcx> {
         };
         let alloc_extra = this.get_alloc_extra(alloc_id)?;
         let mut tree_borrows = alloc_extra.borrow_tracker_tb().borrow_mut();
-        tree_borrows.give_pointer_debug_name(tag, nth_parent, name)
+        let global = this.machine.borrow_tracker.as_ref().unwrap();
+        tree_borrows.give_pointer_debug_name(tag, nth_parent, name, &this.machine, global)
     }
 }
