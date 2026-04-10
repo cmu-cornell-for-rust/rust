@@ -482,18 +482,14 @@ pub fn eval_entry<'tcx>(
         ecx.handle_ice();
         panic::resume_unwind(panic_payload)
     });
-    if let Some(global) = &ecx.machine.borrow_tracker {
-        let global = global.borrow();
-
-        for alloc_id in global.alloc_ids() {
-            if let Some((_, alloc)) = ecx.memory.alloc_map().get(*alloc_id) {
-                if let Some(AllocState::TreeBorrows(tb)) = &alloc.extra.borrow_tracker {
-                    tb.borrow().flush_traces_to_file();
-                }
+    ecx.memory.alloc_map().iter(|iter| {
+        for (_, alloc) in iter {
+            if let Some(AllocState::TreeBorrows(tb)) = &alloc.1.extra.borrow_tracker {
+                tb.borrow().flush_traces_to_file();
             }
         }
-        flush_global_stats();
-    }
+    });
+    flush_global_stats();
     // Obtain the result of the execution. This is always an `Err`, but that doesn't necessarily
     // indicate an error.
     let Err(res) = res.report_err();
