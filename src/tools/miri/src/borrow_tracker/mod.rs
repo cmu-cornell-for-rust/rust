@@ -6,7 +6,6 @@ use rand::Rng;
 use rustc_abi::Size;
 use rustc_data_structures::fx::{FxHashMap, FxHashSet};
 use rustc_middle::mir::RetagKind;
-use rustc_const_eval::interpret::Memory;
 use smallvec::SmallVec;
 
 use crate::*;
@@ -206,19 +205,8 @@ impl GlobalStateInner {
         })
     }
 
-    pub fn remove_unreachable_allocs<'tcx>(&mut self, allocs: &LiveAllocs<'_, '_>, memory: &Memory<'tcx, MiriMachine<'tcx>>) {
-        self.root_ptr_tags.retain(|alloc_id, _| {
-            let is_live = allocs.is_live(*alloc_id);
-            
-            if !is_live {
-                if let Some((_, alloc)) = memory.alloc_map().get(*alloc_id) {
-                    if let Some(AllocState::TreeBorrows(tb)) = &alloc.extra.borrow_tracker {
-                        tb.borrow().flush_traces_to_file();
-                    }
-                }
-            }
-            is_live
-        });
+    pub fn remove_unreachable_allocs(&mut self, allocs: &LiveAllocs<'_, '_>) {
+        self.root_ptr_tags.retain(|id, _| allocs.is_live(*id));
     }
 
     pub fn borrow_tracker_method(&self) -> BorrowTrackerMethod {
@@ -227,6 +215,22 @@ impl GlobalStateInner {
 
     pub fn alloc_ids(&self) -> impl Iterator<Item = &AllocId> {
         self.root_ptr_tags.keys()
+    }
+
+    pub fn should_do_transition(&self) -> bool {
+        match self.borrow_tracker_method {
+            BorrowTrackerMethod::TreeBorrows(params) => {
+                let skip_probability =
+                    params.selective_transition.map(|v| v as f64 / 100.0).unwrap_or(0.0);
+
+                if skip_probability > 0.0 {
+                    let mut rng = rand::rng();
+                    if rng.random_bool(skip_probability) { return false; }
+                }
+                true
+            }
+            _ => true,
+        }
     }
 }
 
@@ -244,6 +248,7 @@ pub enum BorrowTrackerMethod {
 pub struct TreeBorrowsParams {
     pub precise_interior_mut: bool,
     pub sampling_freq: Option<u8>,
+    pub selective_transition: Option<u8>
 }
 
 impl BorrowTrackerMethod {
@@ -518,8 +523,11 @@ impl AllocState {
         match self {
             AllocState::StackedBorrows(sb) =>
                 sb.get_mut().before_memory_deallocation(alloc_id, prov_extra, size, machine),
-            AllocState::TreeBorrows(tb) =>
-                tb.get_mut().before_memory_deallocation(alloc_id, prov_extra, size, machine),
+            AllocState::TreeBorrows(tb) => {
+                let tb_mut = tb.get_mut();
+                tb_mut.flush_traces_to_file();
+                tb_mut.before_memory_deallocation(alloc_id, prov_extra, size, machine)
+            }
             AllocState::NoTreeBorrows => interp_ok(()),
         }
     }

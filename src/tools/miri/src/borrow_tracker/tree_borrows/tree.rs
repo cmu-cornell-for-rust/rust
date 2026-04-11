@@ -1079,6 +1079,9 @@ impl<'tcx> LocationTree {
             decision
         };
         let node_app = |args: NodeAppArgs<'_, LocationTree>| {
+            if !global.borrow().should_do_transition() {
+                return Ok(());
+            }
             visited_nodes.set(visited_nodes.get() + 1);
             let node = args.nodes.get_mut(args.idx).unwrap();
             let mut perm = args.data.perms.entry(args.idx);
@@ -1220,6 +1223,9 @@ impl<'tcx> LocationTree {
                 }
             },
             |args| {
+                if !global.borrow().should_do_transition() {
+                    return Ok(());
+                }
                 visited_nodes.set(visited_nodes.get() + 1);
                 let node = args.nodes.get_mut(args.idx).unwrap();
 

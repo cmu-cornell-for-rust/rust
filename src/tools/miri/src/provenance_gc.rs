@@ -211,7 +211,7 @@ fn remove_unreachable_allocs<'tcx>(ecx: &mut MiriInterpCx<'tcx>, allocs: FxHashS
     ecx.machine.symbolic_alignment.borrow_mut().retain(|id, _| allocs.is_live(*id));
     ecx.machine.alloc_addresses.borrow_mut().remove_unreachable_allocs(&allocs);
     if let Some(borrow_tracker) = &ecx.machine.borrow_tracker {
-        borrow_tracker.borrow_mut().remove_unreachable_allocs(&allocs, &ecx.memory);
+        borrow_tracker.borrow_mut().remove_unreachable_allocs(&allocs);
     }
     // Clean up core (non-Miri-specific) state.
     ecx.remove_unreachable_allocs(&allocs.collected);
