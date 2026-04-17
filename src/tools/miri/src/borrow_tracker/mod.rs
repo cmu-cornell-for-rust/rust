@@ -432,7 +432,7 @@ impl AllocState {
             AllocState::StackedBorrows(sb) =>
                 sb.borrow_mut().before_memory_read(alloc_id, prov_extra, range, machine),
             AllocState::TreeBorrows(tb) =>
-                tb.borrow_mut().before_memory_read(
+                tb.borrow_mut().before_memory_access(
                     AccessKind::Read,
                     alloc_id,
                     prov_extra,
@@ -454,7 +454,7 @@ impl AllocState {
             AllocState::StackedBorrows(sb) =>
                 sb.get_mut().before_memory_write(alloc_id, prov_extra, range, machine),
             AllocState::TreeBorrows(tb) =>
-                tb.get_mut().before_memory_write(
+                tb.get_mut().before_memory_access(
                     AccessKind::Write,
                     alloc_id,
                     prov_extra,
