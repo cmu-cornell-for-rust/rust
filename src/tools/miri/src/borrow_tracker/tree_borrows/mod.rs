@@ -129,7 +129,7 @@ impl AllocState {
                     span,
                 )
             }
-            AllocState::Uninitialized { id, size, span } => {
+            AllocState::Uninitialized { .. } => {
                 interp_ok(())
             }
         }
