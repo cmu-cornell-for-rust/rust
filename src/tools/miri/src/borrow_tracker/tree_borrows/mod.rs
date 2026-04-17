@@ -62,6 +62,79 @@ impl AllocState {
     }
 
     /// Check that an access on the entire range is permitted, and update the tree.
+    pub fn before_memory_write<'tcx>(
+        &mut self,
+        access_kind: AccessKind,
+        alloc_id: AllocId,
+        prov: ProvenanceExtra,
+        range: AllocRange,
+        machine: &MiriMachine<'tcx>,
+    ) -> InterpResult<'tcx> {
+        let global = machine.borrow_tracker.as_ref().unwrap();
+        self.ensure_initialized(&mut global.borrow_mut(), machine);
+                
+        match self {
+            AllocState::Initialized(tree) => {
+                trace!(
+                    "{} with tag {:?}: {:?}, size {}",
+                    access_kind,
+                    prov,
+                    interpret::Pointer::new(alloc_id, range.start),
+                    range.size.bytes(),
+                );
+                let span = machine.current_user_relevant_span();
+                tree.perform_access(
+                    prov,
+                    range,
+                    access_kind,
+                    diagnostics::AccessCause::Explicit(access_kind),
+                    global,
+                    alloc_id,
+                    span,
+                )
+            }
+            AllocState::Uninitialized { .. } => {
+                panic!("tree should have been initialized")
+            }
+        }
+    }
+
+    pub fn before_memory_read<'tcx>(
+        &mut self,
+        access_kind: AccessKind,
+        alloc_id: AllocId,
+        prov: ProvenanceExtra,
+        range: AllocRange,
+        machine: &MiriMachine<'tcx>,
+    ) -> InterpResult<'tcx> {
+        let global = machine.borrow_tracker.as_ref().unwrap();
+
+        match self {
+            AllocState::Initialized(tree) => {
+                trace!(
+                    "{} with tag {:?}: {:?}, size {}",
+                    access_kind,
+                    prov,
+                    interpret::Pointer::new(alloc_id, range.start),
+                    range.size.bytes(),
+                );
+                let span = machine.current_user_relevant_span();
+                tree.perform_access(
+                    prov,
+                    range,
+                    access_kind,
+                    diagnostics::AccessCause::Explicit(access_kind),
+                    global,
+                    alloc_id,
+                    span,
+                )
+            }
+            AllocState::Uninitialized { id, size, span } => {
+                interp_ok(())
+            }
+        }
+    }
+
     pub fn before_memory_access<'tcx>(
         &mut self,
         access_kind: AccessKind,
@@ -108,7 +181,6 @@ impl AllocState {
         machine: &MiriMachine<'tcx>,
     ) -> InterpResult<'tcx> {
         let global = machine.borrow_tracker.as_ref().unwrap();
-        self.ensure_initialized(&mut global.borrow_mut(), machine);
         
         match self {
             AllocState::Initialized(tree) => {
@@ -116,7 +188,7 @@ impl AllocState {
                 tree.dealloc(prov, alloc_range(Size::ZERO, size), global, alloc_id, span)
             }
             AllocState::Uninitialized { .. } => {
-                panic!("tree should have been initialized")
+                interp_ok(())
             }
         }
     }
@@ -243,16 +315,15 @@ impl AllocState {
         tag: BorTag,
         nth_parent: u8,
         name: &str,
-        machine: &MiriMachine<'tcx>,
-        global: &GlobalState,
+        _machine: &MiriMachine<'tcx>,
+        _global: &GlobalState,
     ) -> InterpResult<'tcx> {
-        self.ensure_initialized(&mut global.borrow_mut(), machine);
         match self {
             AllocState::Initialized(tree) => {
                 tree.give_pointer_debug_name(tag, nth_parent, name)
             }
             AllocState::Uninitialized { .. } => {
-                panic!("tree should have been initialized")
+                interp_ok(())
             }
         }
     }
