@@ -142,9 +142,8 @@ impl AllocState {
 
     /// Wrapper for Tree::remove_unreachable_tags
     pub fn remove_unreachable_tags(&mut self, tags: &FxHashSet<BorTag>) {
-        match self {
-            AllocState::Initialized(tree) => tree.remove_unreachable_tags(tags),
-            AllocState::Uninitialized { .. } => ()
+        if let AllocState::Initialized(tree) = self { 
+            tree.remove_unreachable_tags(tags);
         }
     }
 
@@ -158,15 +157,14 @@ impl AllocState {
         global: &GlobalState,
         alloc_id: AllocId,
         span: Span,
-        machine: &MiriMachine<'tcx>,
+        _machine: &MiriMachine<'tcx>,
     ) -> InterpResult<'tcx> {
-        self.ensure_initialized(&mut global.borrow_mut(), machine);
         match self {
             AllocState::Initialized(tree) => {
                 tree.perform_access(prov, range, access_kind, cause, global, alloc_id, span)
             }
             AllocState::Uninitialized { .. } => {
-                panic!("tree should have been initialized")
+                interp_ok(())
             }
         }
     }
@@ -249,9 +247,8 @@ impl AllocState {
 /// Wrapper for Tree::visit_provenance
 impl VisitProvenance for AllocState {
     fn visit_provenance(&self, visit: &mut VisitWith<'_>) {
-        match self {
-            AllocState::Initialized(tree) => tree.visit_provenance(visit),
-            AllocState::Uninitialized { .. } => ()
+        if let AllocState::Initialized(tree) = self {
+            tree.visit_provenance(visit);
         }
     }
 }
