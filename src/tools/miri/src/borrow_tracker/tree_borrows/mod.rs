@@ -371,6 +371,8 @@ trait EvalContextPrivExt<'tcx>: crate::MiriInterpCxExt<'tcx> {
             this.machine.current_user_relevant_span(),
         )?;
         drop(tree_borrows);
+        this.machine.retags_since_gc = this.machine.retags_since_gc.saturating_add(1);
+
 
         interp_ok(Some(new_prov))
     }

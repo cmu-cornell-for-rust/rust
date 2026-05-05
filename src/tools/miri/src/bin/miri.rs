@@ -652,6 +652,11 @@ fn main() -> ExitCode {
                 fatal_error!("-Zmiri-provenance-gc requires a `u32`: {}", err)
             });
             miri_config.gc_interval = interval;
+        } else if let Some(param) = arg.strip_prefix("-Zmiri-retag-gc=") {
+            let interval = param.parse::<u32>().unwrap_or_else(|err| {
+                fatal_error!("-Zmiri-retag-gc requires a `u32`: {}", err)
+            });
+            miri_config.retag_gc_interval = interval;
         } else if let Some(param) = arg.strip_prefix("-Zmiri-measureme=") {
             miri_config.measureme_out = Some(param.to_string());
         } else if let Some(param) = arg.strip_prefix("-Zmiri-backtrace=") {
